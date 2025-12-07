@@ -1,0 +1,287 @@
+package main
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"orx/internal/client"
+	"orx/internal/config"
+	"orx/internal/modelsel"
+	"orx/internal/runner"
+)
+
+var version = "dev"
+
+var (
+	ErrTokenRequired = errors.New("API token required: use --token or set OPENROUTER_API_KEY")
+	ErrEmptyPrompt   = errors.New("empty prompt")
+	errInitConfig    = errors.New("init config error")
+)
+
+type options struct {
+	configPath string
+	timeout    int
+	token      string
+	promptFile string
+	verbose    bool
+}
+
+func main() {
+	if err := newRootCmd().Execute(); err != nil {
+		var ee *exitError
+		if errors.As(err, &ee) {
+			os.Exit(ee.code)
+		}
+		if errors.Is(err, errInitConfig) {
+			os.Exit(3)
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(3)
+	}
+}
+
+func newRootCmd() *cobra.Command {
+	opts := &options{
+		timeout: 600,
+	}
+
+	rootCmd := &cobra.Command{
+		Use:               "orx",
+		Short:             "OpenRouter eXecutor - parallel LLM queries",
+		Version:           version,
+		SilenceUsage:      true,
+		SilenceErrors:     true,
+		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, opts)
+		},
+	}
+	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
+
+	rootCmd.Flags().StringVarP(&opts.configPath, "config", "c", "", "config file (default: ~/.config/orx.json)")
+	rootCmd.Flags().IntVarP(&opts.timeout, "timeout", "t", 600, "global timeout in seconds")
+	rootCmd.PersistentFlags().StringVar(&opts.token, "token", "", "OpenRouter API key (default: $OPENROUTER_API_KEY)")
+	rootCmd.Flags().StringVarP(&opts.promptFile, "prompt-file", "p", "", "read prompt from file")
+	rootCmd.PersistentFlags().BoolVar(&opts.verbose, "verbose", false, "dump HTTP request/response")
+
+	initCmd := &cobra.Command{
+		Use:   "init",
+		Short: "Generate configuration file with interactive model selection",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInit(cmd, opts)
+		},
+	}
+	initCmd.Flags().StringP("output", "o", "", "output path (default: ~/.config/orx.json)")
+	initCmd.Flags().Bool("template", false, "generate template config without interactive selection")
+	rootCmd.AddCommand(initCmd)
+
+	return rootCmd
+}
+
+func run(cmd *cobra.Command, opts *options) error {
+	apiToken := opts.token
+	if apiToken == "" {
+		apiToken = os.Getenv("OPENROUTER_API_KEY")
+	}
+	if apiToken == "" {
+		_ = cmd.Usage()
+		return ErrTokenRequired
+	}
+
+	cfg, err := config.Load(opts.configPath)
+	if err != nil {
+		_ = cmd.Usage()
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	prompt, err := readPrompt(os.Stdin, opts.promptFile)
+	if err != nil {
+		_ = cmd.Usage()
+		return fmt.Errorf("read prompt: %w", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		cancel()
+	}()
+
+	var verboseOut io.Writer
+	if opts.verbose {
+		verboseOut = os.Stderr
+	}
+	cl := client.New(apiToken, opts.verbose, verboseOut)
+	r := runner.New(cfg, cl, time.Duration(opts.timeout)*time.Second, os.Stderr)
+
+	output, err := r.Run(ctx, prompt)
+	if err != nil {
+		return err
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(output); err != nil {
+		return fmt.Errorf("encode output: %w", err)
+	}
+
+	if output.Failed == len(output.Results) {
+		return &exitError{code: 2}
+	} else if output.Failed > 0 {
+		return &exitError{code: 1}
+	}
+
+	return nil
+}
+
+type exitError struct {
+	code int
+}
+
+func (e *exitError) Error() string {
+	return fmt.Sprintf("exit code %d", e.code)
+}
+
+func readPrompt(stdin io.Reader, promptFile string) (string, error) {
+	if promptFile != "" {
+		return readPromptFromFile(promptFile)
+	}
+	return readPromptFromReader(stdin)
+}
+
+func readPromptFromFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	if len(data) == 0 {
+		return "", ErrEmptyPrompt
+	}
+	return string(data), nil
+}
+
+func readPromptFromReader(r io.Reader) (string, error) {
+	if f, ok := r.(*os.File); ok {
+		stat, _ := f.Stat()
+		if (stat.Mode() & os.ModeCharDevice) != 0 {
+			return "", fmt.Errorf("no input: use --prompt-file or pipe data to stdin")
+		}
+	}
+
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+	if len(data) == 0 {
+		return "", ErrEmptyPrompt
+	}
+	return string(data), nil
+}
+
+func runInit(cmd *cobra.Command, opts *options) error {
+	stderr := cmd.ErrOrStderr()
+
+	useTemplate, _ := cmd.Flags().GetBool("template")
+
+	output, _ := cmd.Flags().GetString("output")
+	path := output
+	if path == "" {
+		path = config.DefaultConfigPath()
+	}
+
+	if aborted := confirmOverwrite(cmd, path); aborted {
+		return nil
+	}
+
+	if useTemplate {
+		return runInitTemplate(stderr, path)
+	}
+
+	return runInitInteractive(cmd, opts, stderr, path)
+}
+
+func confirmOverwrite(cmd *cobra.Command, path string) (aborted bool) {
+	if _, err := os.Stat(path); err != nil {
+		return false
+	}
+
+	stderr := cmd.ErrOrStderr()
+	_, _ = fmt.Fprintf(stderr, "File already exists: %s\nOverwrite? [y/N]: ", path)
+
+	reader := bufio.NewReader(cmd.InOrStdin())
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+
+	if answer != "y" && answer != "yes" {
+		_, _ = fmt.Fprintln(stderr, "Aborted")
+		return true
+	}
+	return false
+}
+
+func runInitTemplate(stderr io.Writer, path string) error {
+	if err := config.GenerateExample(path); err != nil {
+		_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
+		return errInitConfig
+	}
+	_, _ = fmt.Fprintf(stderr, "Configuration file created: %s\n", path)
+	return nil
+}
+
+func runInitInteractive(cmd *cobra.Command, opts *options, stderr io.Writer, path string) error {
+	token := opts.token
+	if token == "" {
+		token = os.Getenv("OPENROUTER_API_KEY")
+	}
+	if token == "" {
+		_, _ = fmt.Fprintln(stderr, "Error: API token required: use --token or set OPENROUTER_API_KEY")
+		return errInitConfig
+	}
+
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var verboseW io.Writer
+	if opts.verbose {
+		verboseW = stderr
+	}
+
+	selected, err := modelsel.Run(ctx, token, &modelsel.Options{
+		Verbose:  opts.verbose,
+		VerboseW: verboseW,
+	})
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
+		return errInitConfig
+	}
+	if selected == nil {
+		_, _ = fmt.Fprintln(stderr, "Cancelled")
+		return nil
+	}
+
+	content := config.GenerateFromModels(selected)
+
+	if err := config.WriteConfig(path, content); err != nil {
+		_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
+		return errInitConfig
+	}
+
+	_, _ = fmt.Fprintf(stderr, "Configuration file created: %s\n", path)
+	return nil
+}
