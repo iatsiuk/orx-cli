@@ -21,6 +21,15 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+homebrew_casks:
+  - name: orx
+    repository:
+      owner: iatsiuk
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/iatsiuk/orx-cli"
+    description: "CLI tool for querying multiple LLMs in parallel via OpenRouter"
+
 changelog:
   sort: asc
   filters:
