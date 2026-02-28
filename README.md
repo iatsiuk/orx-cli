@@ -19,14 +19,14 @@ CLI tool for sending prompts to multiple LLM models via [OpenRouter API](https:/
 ### From source
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/iatsiuk/orx-cli.git
 cd orx-cli
 make build
 ```
 
 ### From releases
 
-Download binary from GitHub Releases page.
+Download binary from [GitHub Releases](https://github.com/iatsiuk/orx-cli/releases) page.
 
 ## Quick Start
 
