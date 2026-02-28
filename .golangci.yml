@@ -37,9 +37,6 @@ linters:
     - wastedassign
 
   settings:
-    goimports:
-      local-prefixes:
-        - orx
     cyclop:
       max-complexity: 10
     funlen:
@@ -61,6 +58,13 @@ linters:
         - G704
         - G705
 
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - cyclop
+          - funlen
+
 formatters:
   enable:
     - goimports
@@ -72,8 +76,3 @@ formatters:
 issues:
   max-issues-per-linter: 50
   max-same-issues: 10
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - cyclop
-        - funlen
