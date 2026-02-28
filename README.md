@@ -16,6 +16,12 @@ CLI tool for sending prompts to multiple LLM models via [OpenRouter API](https:/
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew install iatsiuk/tap/orx
+```
+
 ### From source
 
 ```bash
