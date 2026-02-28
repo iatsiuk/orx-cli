@@ -84,7 +84,7 @@ func filterTextModels(models []APIModel) []APIModel {
 	return result
 }
 
-// canProcessText checks if modality has text input and text output (e.g. "text->text", "text+image->text")
+// checks if modality has text input and output (e.g. "text->text", "text+image->text")
 func canProcessText(modality string) bool {
 	if modality == "" {
 		return false

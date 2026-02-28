@@ -6,16 +6,11 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"orx/internal/config"
 )
 
 var ErrNoTextModels = errors.New("no text models available")
-
-type SelectedModel struct {
-	ID                  string
-	Name                string
-	SupportedParameters []string
-	DefaultParameters   map[string]any
-}
 
 type Options struct {
 	Verbose  bool
@@ -24,7 +19,7 @@ type Options struct {
 }
 
 // Run displays TUI for model selection. Returns nil if user cancelled.
-func Run(ctx context.Context, token string, opts *Options) ([]SelectedModel, error) {
+func Run(ctx context.Context, token string, opts *Options) ([]config.SelectedModel, error) {
 	if opts == nil {
 		opts = &Options{}
 	}

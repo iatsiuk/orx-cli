@@ -17,6 +17,7 @@ import (
 
 	"orx/internal/client"
 	"orx/internal/config"
+	"orx/internal/files"
 	"orx/internal/modelsel"
 	"orx/internal/runner"
 )
@@ -30,11 +31,15 @@ var (
 )
 
 type options struct {
-	configPath string
-	timeout    int
-	token      string
-	promptFile string
-	verbose    bool
+	configPath   string
+	timeout      int
+	token        string
+	promptFile   string
+	verbose      bool
+	files        []string
+	maxFileSize  string
+	maxTokens    int
+	systemPrompt string
 }
 
 func main() {
@@ -74,6 +79,10 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&opts.token, "token", "", "OpenRouter API key (default: $OPENROUTER_API_KEY)")
 	rootCmd.Flags().StringVarP(&opts.promptFile, "prompt-file", "p", "", "read prompt from file")
 	rootCmd.PersistentFlags().BoolVar(&opts.verbose, "verbose", false, "dump HTTP request/response")
+	rootCmd.Flags().StringArrayVarP(&opts.files, "file", "f", nil, "file paths to include (can be repeated)")
+	rootCmd.Flags().StringVar(&opts.maxFileSize, "max-file-size", "64KB", "max size per file (e.g., 64KB, 1MB)")
+	rootCmd.Flags().IntVar(&opts.maxTokens, "max-tokens", 100000, "max estimated tokens in file content")
+	rootCmd.Flags().StringVarP(&opts.systemPrompt, "system", "s", "", "system prompt")
 
 	initCmd := &cobra.Command{
 		Use:   "init",
@@ -90,10 +99,7 @@ func newRootCmd() *cobra.Command {
 }
 
 func run(cmd *cobra.Command, opts *options) error {
-	apiToken := opts.token
-	if apiToken == "" {
-		apiToken = os.Getenv("OPENROUTER_API_KEY")
-	}
+	apiToken := getAPIToken(opts.token)
 	if apiToken == "" {
 		_ = cmd.Usage()
 		return ErrTokenRequired
@@ -111,6 +117,11 @@ func run(cmd *cobra.Command, opts *options) error {
 		return fmt.Errorf("read prompt: %w", err)
 	}
 
+	prompt, err = appendFileContent(prompt, opts)
+	if err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -126,9 +137,12 @@ func run(cmd *cobra.Command, opts *options) error {
 		verboseOut = os.Stderr
 	}
 	cl := client.New(apiToken, opts.verbose, verboseOut)
-	r := runner.New(cfg, cl, time.Duration(opts.timeout)*time.Second, os.Stderr)
+	r := runner.New(cfg.EnabledModels(), cl, os.TempDir(),
+		runner.WithTimeout(time.Duration(opts.timeout)*time.Second),
+		runner.WithProgressOut(os.Stderr),
+	)
 
-	output, err := r.Run(ctx, prompt)
+	output, err := r.Run(ctx, opts.systemPrompt, prompt)
 	if err != nil {
 		return err
 	}
@@ -139,13 +153,7 @@ func run(cmd *cobra.Command, opts *options) error {
 		return fmt.Errorf("encode output: %w", err)
 	}
 
-	if output.Failed == len(output.Results) {
-		return &exitError{code: 2}
-	} else if output.Failed > 0 {
-		return &exitError{code: 1}
-	}
-
-	return nil
+	return checkExitCode(output)
 }
 
 type exitError struct {
@@ -154,6 +162,48 @@ type exitError struct {
 
 func (e *exitError) Error() string {
 	return fmt.Sprintf("exit code %d", e.code)
+}
+
+func getAPIToken(flagToken string) string {
+	if flagToken != "" {
+		return flagToken
+	}
+	return os.Getenv("OPENROUTER_API_KEY")
+}
+
+func checkExitCode(output *runner.Output) error {
+	if output.Failed == len(output.Results) {
+		return &exitError{code: 2}
+	}
+	if output.Failed > 0 {
+		return &exitError{code: 1}
+	}
+	return nil
+}
+
+func appendFileContent(prompt string, opts *options) (string, error) {
+	if len(opts.files) == 0 {
+		return prompt, nil
+	}
+
+	maxSize, err := files.ParseSize(opts.maxFileSize)
+	if err != nil {
+		return "", fmt.Errorf("invalid --max-file-size: %w", err)
+	}
+
+	fileContent, err := files.LoadContent(files.Request{
+		Files:       opts.files,
+		MaxFileSize: maxSize,
+		MaxTokens:   opts.maxTokens,
+	})
+	if err != nil {
+		return "", fmt.Errorf("load files: %w", err)
+	}
+
+	if fileContent != "" {
+		return prompt + "\n\n[FILES]\n" + fileContent, nil
+	}
+	return prompt, nil
 }
 
 func readPrompt(stdin io.Reader, promptFile string) (string, error) {
@@ -243,10 +293,7 @@ func runInitTemplate(stderr io.Writer, path string) error {
 }
 
 func runInitInteractive(cmd *cobra.Command, opts *options, stderr io.Writer, path string) error {
-	token := opts.token
-	if token == "" {
-		token = os.Getenv("OPENROUTER_API_KEY")
-	}
+	token := getAPIToken(opts.token)
 	if token == "" {
 		_, _ = fmt.Fprintln(stderr, "Error: API token required: use --token or set OPENROUTER_API_KEY")
 		return errInitConfig

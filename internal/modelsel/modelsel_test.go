@@ -154,27 +154,6 @@ func TestSortByProvider(t *testing.T) {
 	}
 }
 
-func TestExtractProvider(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"openai/gpt-4o", "openai"},
-		{"anthropic/claude-3", "anthropic"},
-		{"no-slash", "no-slash"},
-		{"deep/nested/path", "deep"},
-	}
-
-	for _, tt := range tests {
-		got := extractProvider(tt.input)
-		if got != tt.want {
-			t.Errorf("extractProvider(%q) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
 func TestFormatPricing(t *testing.T) {
 	t.Parallel()
 

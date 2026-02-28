@@ -12,6 +12,7 @@ CLI tool for sending prompts to multiple LLM models via [OpenRouter API](https:/
 - Retry with backoff for transient failures
 - Verbose mode for HTTP debugging
 - Graceful shutdown on SIGINT/SIGTERM
+- File content inclusion with structured delimiters
 
 ## Installation
 
@@ -55,13 +56,17 @@ orx [flags] < prompt.txt
 orx init [--output path] [--template]
 
 Flags:
-  -c, --config string       Path to config file (default: ~/.config/orx.json)
-  -t, --timeout int         Global timeout in seconds (default: 600)
-      --token string        OpenRouter API key (default: $OPENROUTER_API_KEY)
-  -p, --prompt-file string  Read prompt from file instead of stdin
-      --verbose             Dump HTTP request/response to stderr
-  -h, --help                Show help
-  -v, --version             Show version
+  -c, --config string        Path to config file (default: ~/.config/orx.json)
+  -t, --timeout int          Global timeout in seconds (default: 600)
+      --token string         OpenRouter API key (default: $OPENROUTER_API_KEY)
+  -s, --system string        System prompt
+  -p, --prompt-file string   Read prompt from file instead of stdin
+  -f, --file strings         File paths to include (can be repeated)
+      --max-file-size string Max size per file (default: "64KB")
+      --max-tokens int       Max estimated tokens in files (default: 100000)
+      --verbose              Dump HTTP request/response to stderr
+  -h, --help                 Show help
+  -v, --version              Show version
 
 Init Flags:
   -o, --output string       Output path (default: ~/.config/orx.json)
@@ -85,7 +90,40 @@ orx -c ~/custom.json -t 300 < prompt.txt
 
 # Debug mode
 orx --verbose < prompt.txt
+
+# Include files for context
+echo "Review this code" | orx -f main.go -f config.go
+
+# With custom limits
+orx -f largefile.go --max-file-size 1MB --max-tokens 200000 -p prompt.txt
 ```
+
+## File Loading
+
+Include file contents in prompts using `-f`/`--file`. Files are wrapped in delimiters for clear boundaries.
+
+```bash
+echo "Explain this code" | orx -f main.go -f utils.go
+```
+
+### Output Format
+
+```
+[FILES]
+===== BEGIN FILE =====
+path: main.go
+----- BEGIN CONTENT -----
+<file content>
+----- END CONTENT -----
+===== END FILE =====
+```
+
+### Behavior
+
+- Binary files are automatically skipped (listed in OMITTED FILES section)
+- Oversized files (>`--max-file-size`) are skipped
+- Token limit (`--max-tokens`) applies to total file content
+- Token estimation: ~4 characters per token
 
 ## Configuration
 
@@ -93,9 +131,6 @@ Standard JSON config with optional `//` comments support. Default location: `~/.
 
 ```jsonc
 {
-  // Global system prompt (optional)
-  "system_prompt": "You are an expert assistant.",
-
   "models": [
     {
       "name": "gpt-4o",
@@ -128,15 +163,21 @@ Standard JSON config with optional `//` comments support. Default location: `~/.
 | `temperature` | Controls randomness | 0.0-2.0 |
 | `top_p` | Nucleus sampling | 0.0-1.0 |
 | `top_k` | Limits token choices | 0+ |
+| `min_p` | Minimum probability threshold | 0.0-1.0 |
+| `top_a` | Top-A sampling | 0.0-1.0 |
 | `max_tokens` | Maximum response length | 1+ |
+| `max_completion_tokens` | Maximum completion tokens | 1+ |
 | `frequency_penalty` | Reduces repetition | -2.0 to 2.0 |
 | `presence_penalty` | Encourages new topics | -2.0 to 2.0 |
+| `repetition_penalty` | Penalizes repeated tokens | 0.0-2.0 |
+| `seed` | Deterministic generation seed | 0+ |
+| `stop` | Stop sequence(s) | string or array |
 
 See [OpenRouter docs](https://openrouter.ai/docs/api/reference/parameters) for full parameter list.
 
 ### Reasoning Models
 
-For models with reasoning support (o1, o3, claude-3.7, deepseek-r1):
+For models with reasoning support (o1, o3, deepseek-r1, etc.):
 
 ```jsonc
 {
@@ -144,10 +185,31 @@ For models with reasoning support (o1, o3, claude-3.7, deepseek-r1):
   "model": "openai/o1",
   "enabled": true,
   "reasoning": {
-    "effort": "high",     // "low" | "medium" | "high"
-    "exclude": false      // Hide reasoning from response
+    "enabled": true,                // Enable reasoning
+    "effort": "high",               // "none" | "minimal" | "low" | "medium" | "high" | "xhigh"
+    "max_tokens": 4096,             // Max reasoning tokens (mutually exclusive with effort)
+    "exclude": false,               // Hide reasoning from response
+    "summary": "auto"               // "auto" | "concise" | "detailed"
   },
   "include_reasoning": true
+}
+```
+
+### Provider Routing
+
+Control model provider selection per model:
+
+```jsonc
+{
+  "name": "gpt-4o",
+  "model": "openai/gpt-4o",
+  "enabled": true,
+  "provider": {
+    "order": ["Azure", "OpenAI"],       // Preferred provider order
+    "allow_fallbacks": true,            // Allow fallback to other providers
+    "require_parameters": false,        // Only use providers supporting all parameters
+    "data_collection": "deny"           // "allow" | "deny"
+  }
 }
 ```
 
@@ -183,7 +245,7 @@ Progress output to stderr:
 ```
 gpt-4o - [requesting]
 claude-sonnet - [requesting]
-gpt-4o - [done] (2.3s)
+gpt-4o - [done (2.3s), /tmp/orx-a1b2c3d4-...json]
 claude-sonnet - [error]
 ```
 

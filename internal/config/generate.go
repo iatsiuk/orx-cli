@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"orx/internal/modelsel"
 )
 
 type generatedModel struct {
@@ -18,25 +16,9 @@ type generatedModel struct {
 	AvailableKeys []string // supported but not in defaults
 }
 
-// known parameters we support
-var knownParams = map[string]bool{
-	"temperature":        true,
-	"top_p":              true,
-	"top_k":              true,
-	"max_tokens":         true,
-	"frequency_penalty":  true,
-	"presence_penalty":   true,
-	"repetition_penalty": true,
-	"min_p":              true,
-	"top_a":              true,
-	"seed":               true,
-	"stop":               true,
-}
-
-func GenerateFromModels(models []modelsel.SelectedModel) string {
+func GenerateFromModels(models []SelectedModel) string {
 	var sb strings.Builder
 	sb.WriteString("{\n")
-	sb.WriteString("  \"system_prompt\": \"\",\n")
 	sb.WriteString("  \"models\": [\n")
 
 	for i, m := range models {
@@ -49,7 +31,7 @@ func GenerateFromModels(models []modelsel.SelectedModel) string {
 	return sb.String()
 }
 
-func buildModel(m modelsel.SelectedModel) generatedModel {
+func buildModel(m SelectedModel) generatedModel {
 	gm := generatedModel{
 		Name:         m.Name,
 		Model:        m.ID,
@@ -58,9 +40,6 @@ func buildModel(m modelsel.SelectedModel) generatedModel {
 	}
 
 	for _, param := range m.SupportedParameters {
-		if !knownParams[param] {
-			continue
-		}
 		if val, ok := m.DefaultParameters[param]; ok && val != nil {
 			gm.ActiveParams[param] = val
 		} else {

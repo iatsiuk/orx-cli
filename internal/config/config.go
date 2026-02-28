@@ -10,34 +10,36 @@ import (
 )
 
 type Config struct {
-	SystemPrompt string  `json:"system_prompt"`
-	Models       []Model `json:"models"`
+	Models []Model `json:"models"`
 }
 
 type Model struct {
-	Name              string           `json:"name"`
-	Model             string           `json:"model"`
-	Enabled           bool             `json:"enabled"`
-	Temperature       *float64         `json:"temperature,omitempty"`
-	TopP              *float64         `json:"top_p,omitempty"`
-	TopK              *int             `json:"top_k,omitempty"`
-	FrequencyPenalty  *float64         `json:"frequency_penalty,omitempty"`
-	PresencePenalty   *float64         `json:"presence_penalty,omitempty"`
-	RepetitionPenalty *float64         `json:"repetition_penalty,omitempty"`
-	MinP              *float64         `json:"min_p,omitempty"`
-	TopA              *float64         `json:"top_a,omitempty"`
-	Seed              *int             `json:"seed,omitempty"`
-	MaxTokens         *int             `json:"max_tokens,omitempty"`
-	Stop              any              `json:"stop,omitempty"`
-	Reasoning         *ReasoningConfig `json:"reasoning,omitempty"`
-	IncludeReasoning  *bool            `json:"include_reasoning,omitempty"`
-	Provider          *ProviderConfig  `json:"provider,omitempty"`
+	Name                string           `json:"name"`
+	Model               string           `json:"model"`
+	Enabled             bool             `json:"enabled"`
+	Temperature         *float64         `json:"temperature,omitempty"`
+	TopP                *float64         `json:"top_p,omitempty"`
+	TopK                *int             `json:"top_k,omitempty"`
+	FrequencyPenalty    *float64         `json:"frequency_penalty,omitempty"`
+	PresencePenalty     *float64         `json:"presence_penalty,omitempty"`
+	RepetitionPenalty   *float64         `json:"repetition_penalty,omitempty"`
+	MinP                *float64         `json:"min_p,omitempty"`
+	TopA                *float64         `json:"top_a,omitempty"`
+	Seed                *int             `json:"seed,omitempty"`
+	MaxTokens           *int             `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int             `json:"max_completion_tokens,omitempty"`
+	Stop                any              `json:"stop,omitempty"`
+	Reasoning           *ReasoningConfig `json:"reasoning,omitempty"`
+	IncludeReasoning    *bool            `json:"include_reasoning,omitempty"`
+	Provider            *ProviderConfig  `json:"provider,omitempty"`
 }
 
 type ReasoningConfig struct {
+	Enabled   *bool  `json:"enabled,omitempty"`
 	Effort    string `json:"effort,omitempty"`
 	MaxTokens *int   `json:"max_tokens,omitempty"`
 	Exclude   bool   `json:"exclude,omitempty"`
+	Summary   string `json:"summary,omitempty"`
 }
 
 type ProviderConfig struct {
@@ -121,54 +123,36 @@ func (c *Config) validateModel(i int) error {
 }
 
 func validateSamplingParams(m *Model) error {
-	if err := validateTemperatureParams(m); err != nil {
-		return err
+	checks := []error{
+		validateRange(m.Name, "top_p", m.TopP, 0, 1),
+		validateRange(m.Name, "min_p", m.MinP, 0, 1),
+		validateRange(m.Name, "top_a", m.TopA, 0, 1),
+		validateRange(m.Name, "temperature", m.Temperature, 0, 2),
+		validateRange(m.Name, "frequency_penalty", m.FrequencyPenalty, -2, 2),
+		validateRange(m.Name, "presence_penalty", m.PresencePenalty, -2, 2),
+		validateRange(m.Name, "repetition_penalty", m.RepetitionPenalty, 0, 2),
+		validateMinInt(m.Name, "top_k", m.TopK, 0),
+		validateMinInt(m.Name, "max_tokens", m.MaxTokens, 1),
+		validateMinInt(m.Name, "max_completion_tokens", m.MaxCompletionTokens, 1),
 	}
-	return validatePenaltyParams(m)
-}
-
-func validateTemperatureParams(m *Model) error {
-	if err := validateRange01(m.Name, "top_p", m.TopP); err != nil {
-		return err
-	}
-	if err := validateRange01(m.Name, "min_p", m.MinP); err != nil {
-		return err
-	}
-	if err := validateRange01(m.Name, "top_a", m.TopA); err != nil {
-		return err
-	}
-	return validateOtherParams(m)
-}
-
-func validateOtherParams(m *Model) error {
-	if m.Temperature != nil && (*m.Temperature < 0.0 || *m.Temperature > 2.0) {
-		return fmt.Errorf("model %q: temperature must be between 0.0 and 2.0", m.Name)
-	}
-	if m.TopK != nil && *m.TopK < 0 {
-		return fmt.Errorf("model %q: top_k must be >= 0", m.Name)
-	}
-	if m.MaxTokens != nil && *m.MaxTokens < 1 {
-		return fmt.Errorf("model %q: max_tokens must be >= 1", m.Name)
+	for _, err := range checks {
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func validateRange01(name, param string, val *float64) error {
-	if val != nil && (*val < 0.0 || *val > 1.0) {
-		return fmt.Errorf("model %q: %s must be between 0.0 and 1.0", name, param)
+func validateRange(name, param string, val *float64, lo, hi float64) error {
+	if val != nil && (*val < lo || *val > hi) {
+		return fmt.Errorf("model %q: %s must be between %.1f and %.1f", name, param, lo, hi)
 	}
 	return nil
 }
 
-func validatePenaltyParams(m *Model) error {
-	if m.FrequencyPenalty != nil && (*m.FrequencyPenalty < -2.0 || *m.FrequencyPenalty > 2.0) {
-		return fmt.Errorf("model %q: frequency_penalty must be between -2.0 and 2.0", m.Name)
-	}
-	if m.PresencePenalty != nil && (*m.PresencePenalty < -2.0 || *m.PresencePenalty > 2.0) {
-		return fmt.Errorf("model %q: presence_penalty must be between -2.0 and 2.0", m.Name)
-	}
-	if m.RepetitionPenalty != nil && (*m.RepetitionPenalty < 0.0 || *m.RepetitionPenalty > 2.0) {
-		return fmt.Errorf("model %q: repetition_penalty must be between 0.0 and 2.0", m.Name)
+func validateMinInt(name, param string, val *int, lo int) error {
+	if val != nil && *val < lo {
+		return fmt.Errorf("model %q: %s must be >= %d", name, param, lo)
 	}
 	return nil
 }
@@ -179,9 +163,20 @@ func validateReasoning(name string, r *ReasoningConfig) error {
 	}
 
 	if r.Effort != "" {
-		validEfforts := map[string]bool{"low": true, "medium": true, "high": true}
+		validEfforts := map[string]bool{
+			"none": true, "minimal": true, "low": true, "medium": true, "high": true, "xhigh": true,
+		}
 		if !validEfforts[r.Effort] {
-			return fmt.Errorf("model %q: reasoning.effort must be 'low', 'medium', or 'high'", name)
+			return fmt.Errorf("model %q: reasoning.effort must be 'none', 'minimal', 'low', 'medium', 'high', or 'xhigh'", name)
+		}
+	}
+
+	if r.Summary != "" {
+		validSummaries := map[string]bool{
+			"auto": true, "concise": true, "detailed": true,
+		}
+		if !validSummaries[r.Summary] {
+			return fmt.Errorf("model %q: reasoning.summary must be 'auto', 'concise', or 'detailed'", name)
 		}
 	}
 
@@ -202,3 +197,10 @@ func validateProvider(name string, p *ProviderConfig) error {
 }
 
 var ErrNoEnabledModels = errors.New("no enabled models in configuration")
+
+type SelectedModel struct {
+	ID                  string
+	Name                string
+	SupportedParameters []string
+	DefaultParameters   map[string]any
+}

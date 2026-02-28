@@ -6,7 +6,6 @@ import (
 )
 
 const exampleConfig = `{
-  "system_prompt": "",
   "models": [
     {
       "name": "gpt-4o",

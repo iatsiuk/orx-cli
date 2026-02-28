@@ -10,10 +10,31 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"time"
 
 	"orx/internal/config"
 )
+
+// retryable error patterns for http/2 transport failures
+var retryablePatterns = []string{
+	"stream error",
+	"internal_error",
+	"connection reset",
+	"rst_stream",
+	"goaway",
+}
+
+// retryable API error message patterns (upstream provider failures proxied via HTTP 200)
+var retryableAPIPatterns = []string{
+	"internal server error",
+	"bad gateway",
+	"service unavailable",
+	"gateway timeout",
+	"overloaded",
+	"too many requests",
+	"rate limit",
+}
 
 const (
 	defaultBaseURL = "https://openrouter.ai/api/v1/chat/completions"
@@ -52,22 +73,23 @@ func New(token string, verbose bool, output io.Writer, opts ...Option) *Client {
 }
 
 type Request struct {
-	Model             string     `json:"model"`
-	Messages          []Message  `json:"messages"`
-	Temperature       *float64   `json:"temperature,omitempty"`
-	TopP              *float64   `json:"top_p,omitempty"`
-	TopK              *int       `json:"top_k,omitempty"`
-	FrequencyPenalty  *float64   `json:"frequency_penalty,omitempty"`
-	PresencePenalty   *float64   `json:"presence_penalty,omitempty"`
-	RepetitionPenalty *float64   `json:"repetition_penalty,omitempty"`
-	MinP              *float64   `json:"min_p,omitempty"`
-	TopA              *float64   `json:"top_a,omitempty"`
-	Seed              *int       `json:"seed,omitempty"`
-	MaxTokens         *int       `json:"max_tokens,omitempty"`
-	Stop              any        `json:"stop,omitempty"`
-	Reasoning         *Reasoning `json:"reasoning,omitempty"`
-	IncludeReasoning  *bool      `json:"include_reasoning,omitempty"`
-	Provider          *Provider  `json:"provider,omitempty"`
+	Model               string     `json:"model"`
+	Messages            []Message  `json:"messages"`
+	Temperature         *float64   `json:"temperature,omitempty"`
+	TopP                *float64   `json:"top_p,omitempty"`
+	TopK                *int       `json:"top_k,omitempty"`
+	FrequencyPenalty    *float64   `json:"frequency_penalty,omitempty"`
+	PresencePenalty     *float64   `json:"presence_penalty,omitempty"`
+	RepetitionPenalty   *float64   `json:"repetition_penalty,omitempty"`
+	MinP                *float64   `json:"min_p,omitempty"`
+	TopA                *float64   `json:"top_a,omitempty"`
+	Seed                *int       `json:"seed,omitempty"`
+	MaxTokens           *int       `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int       `json:"max_completion_tokens,omitempty"`
+	Stop                any        `json:"stop,omitempty"`
+	Reasoning           *Reasoning `json:"reasoning,omitempty"`
+	IncludeReasoning    *bool      `json:"include_reasoning,omitempty"`
+	Provider            *Provider  `json:"provider,omitempty"`
 }
 
 type Message struct {
@@ -76,9 +98,11 @@ type Message struct {
 }
 
 type Reasoning struct {
+	Enabled   *bool  `json:"enabled,omitempty"`
 	Effort    string `json:"effort,omitempty"`
 	MaxTokens *int   `json:"max_tokens,omitempty"`
 	Exclude   bool   `json:"exclude,omitempty"`
+	Summary   string `json:"summary,omitempty"`
 }
 
 type Provider struct {
@@ -209,27 +233,30 @@ func (c *Client) buildRequest(model *config.Model, systemPrompt, userPrompt stri
 	messages = append(messages, Message{Role: "user", Content: userPrompt})
 
 	req := Request{
-		Model:             model.Model,
-		Messages:          messages,
-		Temperature:       model.Temperature,
-		TopP:              model.TopP,
-		TopK:              model.TopK,
-		FrequencyPenalty:  model.FrequencyPenalty,
-		PresencePenalty:   model.PresencePenalty,
-		RepetitionPenalty: model.RepetitionPenalty,
-		MinP:              model.MinP,
-		TopA:              model.TopA,
-		Seed:              model.Seed,
-		MaxTokens:         model.MaxTokens,
-		Stop:              model.Stop,
-		IncludeReasoning:  model.IncludeReasoning,
+		Model:               model.Model,
+		Messages:            messages,
+		Temperature:         model.Temperature,
+		TopP:                model.TopP,
+		TopK:                model.TopK,
+		FrequencyPenalty:    model.FrequencyPenalty,
+		PresencePenalty:     model.PresencePenalty,
+		RepetitionPenalty:   model.RepetitionPenalty,
+		MinP:                model.MinP,
+		TopA:                model.TopA,
+		Seed:                model.Seed,
+		MaxTokens:           model.MaxTokens,
+		MaxCompletionTokens: model.MaxCompletionTokens,
+		Stop:                model.Stop,
+		IncludeReasoning:    model.IncludeReasoning,
 	}
 
 	if model.Reasoning != nil {
 		req.Reasoning = &Reasoning{
+			Enabled:   model.Reasoning.Enabled,
 			Effort:    model.Reasoning.Effort,
 			MaxTokens: model.Reasoning.MaxTokens,
 			Exclude:   model.Reasoning.Exclude,
+			Summary:   model.Reasoning.Summary,
 		}
 	}
 
@@ -311,6 +338,9 @@ func (c *Client) parseResponse(body []byte) (*Response, error) {
 	}
 
 	if result.Error != nil {
+		if isRetryableAPIError(result.Error) {
+			return nil, &retryableError{statusCode: http.StatusBadGateway, body: result.Error.Message}
+		}
 		return nil, fmt.Errorf("api error: %s", result.Error.Message)
 	}
 
@@ -331,11 +361,71 @@ func (e *retryableError) Error() string {
 }
 
 func isRetryable(err error) bool {
+	// never retry on user cancellation (Ctrl+C)
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+
 	var re *retryableError
 	if errors.As(err, &re) {
 		return true
 	}
 
 	var netErr net.Error
-	return errors.As(err, &netErr)
+	if errors.As(err, &netErr) {
+		return true
+	}
+
+	// http/2 stream errors and unexpected EOF during body read
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+
+	// case-insensitive pattern matching for transport errors
+	errStr := strings.ToLower(err.Error())
+	for _, pattern := range retryablePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isRetryableAPIError(apiErr *APIError) bool {
+	if retryable, decided := isRetryableByCode(apiErr.Code); decided {
+		return retryable
+	}
+
+	// fallback: message pattern matching
+	msg := strings.ToLower(apiErr.Message)
+	for _, p := range retryableAPIPatterns {
+		if strings.Contains(msg, p) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isRetryableByCode(code any) (retryable, decided bool) {
+	switch v := code.(type) {
+	case float64:
+		c := int(v)
+		if c == http.StatusTooManyRequests || c >= 500 {
+			return true, true
+		}
+		if c >= 400 && c < 500 {
+			return false, true
+		}
+	case string:
+		s := strings.ToLower(v)
+		for _, p := range []string{"rate_limit", "timeout", "overload", "server_error"} {
+			if strings.Contains(s, p) {
+				return true, true
+			}
+		}
+	}
+
+	return false, false
 }

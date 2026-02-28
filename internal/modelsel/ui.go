@@ -7,6 +7,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"orx/internal/config"
 )
 
 type tuiApp struct {
@@ -103,7 +105,7 @@ func (a *tuiApp) setupInputHandlers() {
 			a.cycleFocus()
 			return nil
 		case tcell.KeyEnter:
-			return a.handleEnter()
+			return a.handleEnter(event)
 		}
 
 		if event.Rune() == '/' {
@@ -187,12 +189,12 @@ func (a *tuiApp) updateDetails(index int) {
 	m := a.filtered[index]
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("[yellow]%s[white]\n\n", m.Name))
-	sb.WriteString(fmt.Sprintf("[gray]ID:[white] %s\n\n", m.ID))
-	sb.WriteString(fmt.Sprintf("[gray]Context:[white] %s\n\n", formatContextLength(m.ContextLength)))
+	fmt.Fprintf(&sb, "[yellow]%s[white]\n\n", m.Name)
+	fmt.Fprintf(&sb, "[gray]ID:[white] %s\n\n", m.ID)
+	fmt.Fprintf(&sb, "[gray]Context:[white] %s\n\n", formatContextLength(m.ContextLength))
 	sb.WriteString("[gray]Pricing:[white]\n")
-	sb.WriteString(fmt.Sprintf("  Input:  %s\n", formatPricing(m.Pricing.Prompt)))
-	sb.WriteString(fmt.Sprintf("  Output: %s\n\n", formatPricing(m.Pricing.Completion)))
+	fmt.Fprintf(&sb, "  Input:  %s\n", formatPricing(m.Pricing.Prompt))
+	fmt.Fprintf(&sb, "  Output: %s\n\n", formatPricing(m.Pricing.Completion))
 
 	if m.Description != "" {
 		sb.WriteString("[gray]Description:[white]\n")
@@ -208,22 +210,23 @@ func (a *tuiApp) updateStatusBar() {
 	a.statusBar.SetText(text)
 }
 
-func (a *tuiApp) handleEnter() *tcell.EventKey {
+func (a *tuiApp) handleEnter(event *tcell.EventKey) *tcell.EventKey {
 	switch a.app.GetFocus() {
 	case a.searchInput:
 		a.app.SetFocus(a.modelList)
 		return nil
 	case a.detailsView:
 		return nil
-	}
-
-	if len(a.getSelectedModels()) == 0 {
-		a.showWarning("Select at least one model")
+	case a.modelList:
+		if len(a.getSelectedModels()) == 0 {
+			a.showWarning("Select at least one model")
+			return nil
+		}
+		a.confirmed = true
+		a.app.Stop()
 		return nil
 	}
-	a.confirmed = true
-	a.app.Stop()
-	return nil
+	return event
 }
 
 func (a *tuiApp) cycleFocus() {
@@ -258,7 +261,6 @@ func (a *tuiApp) showWarning(msg string) {
 		SetText(msg).
 		AddButtons([]string{"OK"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			a.app.SetRoot(a.app.GetFocus(), true)
 			a.buildLayout()
 		})
 
@@ -269,11 +271,11 @@ func (a *tuiApp) run() error {
 	return a.app.Run()
 }
 
-func (a *tuiApp) getSelectedModels() []SelectedModel {
-	var result []SelectedModel
+func (a *tuiApp) getSelectedModels() []config.SelectedModel {
+	var result []config.SelectedModel
 	for i := range a.models {
 		if a.selected[a.models[i].ID] {
-			result = append(result, SelectedModel{
+			result = append(result, config.SelectedModel{
 				ID:                  a.models[i].ID,
 				Name:                a.models[i].Name,
 				SupportedParameters: a.models[i].SupportedParameters,

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -36,12 +37,11 @@ func TestLoad(t *testing.T) {
 			name: "with comments",
 			json5: `{
 				// this is a comment
-				"system_prompt": "hello",
 				"models": []
 			}`,
 			check: func(t *testing.T, cfg *Config) {
-				if cfg.SystemPrompt != "hello" {
-					t.Errorf("expected system_prompt 'hello', got %q", cfg.SystemPrompt)
+				if len(cfg.Models) != 0 {
+					t.Errorf("expected empty models, got %d", len(cfg.Models))
 				}
 			},
 		},
@@ -61,7 +61,6 @@ func TestLoad(t *testing.T) {
 		{
 			name: "with all parameters",
 			json5: `{
-				"system_prompt": "You are helpful",
 				"models": [{
 					"name": "full",
 					"model": "test/full",
@@ -130,6 +129,99 @@ func TestLoad(t *testing.T) {
 			name:    "invalid reasoning effort",
 			json5:   `{"models": [{"name": "t", "model": "m", "reasoning": {"effort": "invalid"}}]}`,
 			wantErr: true,
+		},
+		{
+			name:  "reasoning effort minimal",
+			json5: `{"models": [{"name": "t", "model": "m", "reasoning": {"effort": "minimal"}}]}`,
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.Models[0].Reasoning == nil || cfg.Models[0].Reasoning.Effort != "minimal" {
+					t.Errorf("expected effort 'minimal', got %v", cfg.Models[0].Reasoning)
+				}
+			},
+		},
+		{
+			name:  "reasoning effort none",
+			json5: `{"models": [{"name": "t", "model": "m", "reasoning": {"effort": "none"}}]}`,
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.Models[0].Reasoning == nil || cfg.Models[0].Reasoning.Effort != "none" {
+					t.Errorf("expected effort 'none', got %v", cfg.Models[0].Reasoning)
+				}
+			},
+		},
+		{
+			name:  "reasoning effort xhigh",
+			json5: `{"models": [{"name": "t", "model": "m", "reasoning": {"effort": "xhigh"}}]}`,
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.Models[0].Reasoning == nil || cfg.Models[0].Reasoning.Effort != "xhigh" {
+					t.Errorf("expected effort 'xhigh', got %v", cfg.Models[0].Reasoning)
+				}
+			},
+		},
+		{
+			name:  "reasoning summary auto",
+			json5: `{"models": [{"name": "t", "model": "m", "reasoning": {"effort": "high", "summary": "auto"}}]}`,
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.Models[0].Reasoning == nil || cfg.Models[0].Reasoning.Summary != "auto" {
+					t.Errorf("expected summary 'auto', got %v", cfg.Models[0].Reasoning)
+				}
+			},
+		},
+		{
+			name:  "reasoning summary concise",
+			json5: `{"models": [{"name": "t", "model": "m", "reasoning": {"summary": "concise"}}]}`,
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.Models[0].Reasoning == nil || cfg.Models[0].Reasoning.Summary != "concise" {
+					t.Errorf("expected summary 'concise', got %v", cfg.Models[0].Reasoning)
+				}
+			},
+		},
+		{
+			name:  "reasoning summary detailed",
+			json5: `{"models": [{"name": "t", "model": "m", "reasoning": {"summary": "detailed"}}]}`,
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.Models[0].Reasoning == nil || cfg.Models[0].Reasoning.Summary != "detailed" {
+					t.Errorf("expected summary 'detailed', got %v", cfg.Models[0].Reasoning)
+				}
+			},
+		},
+		{
+			name:    "invalid reasoning summary",
+			json5:   `{"models": [{"name": "t", "model": "m", "reasoning": {"summary": "invalid"}}]}`,
+			wantErr: true,
+		},
+		{
+			name:  "max_completion_tokens",
+			json5: `{"models": [{"name": "t", "model": "m", "max_completion_tokens": 4096}]}`,
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.Models[0].MaxCompletionTokens == nil || *cfg.Models[0].MaxCompletionTokens != 4096 {
+					t.Errorf("expected max_completion_tokens 4096, got %v", cfg.Models[0].MaxCompletionTokens)
+				}
+			},
+		},
+		{
+			name:    "max_completion_tokens zero",
+			json5:   `{"models": [{"name": "t", "model": "m", "max_completion_tokens": 0}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "max_completion_tokens negative",
+			json5:   `{"models": [{"name": "t", "model": "m", "max_completion_tokens": -100}]}`,
+			wantErr: true,
+		},
+		{
+			name:  "reasoning enabled",
+			json5: `{"models": [{"name": "t", "model": "m", "reasoning": {"enabled": true, "effort": "high"}}]}`,
+			check: func(t *testing.T, cfg *Config) {
+				if cfg.Models[0].Reasoning == nil {
+					t.Fatal("reasoning is nil")
+				}
+				if cfg.Models[0].Reasoning.Enabled == nil || !*cfg.Models[0].Reasoning.Enabled {
+					t.Error("expected enabled true")
+				}
+				if cfg.Models[0].Reasoning.Effort != "high" {
+					t.Errorf("expected effort 'high', got %q", cfg.Models[0].Reasoning.Effort)
+				}
+			},
 		},
 		{
 			name:    "invalid data_collection",
@@ -335,7 +427,13 @@ func TestDefaultConfigPath(t *testing.T) {
 	if filepath.Base(path) != "orx.json" {
 		t.Errorf("expected orx.json, got %q", filepath.Base(path))
 	}
-	if filepath.Base(filepath.Dir(path)) != ".config" {
-		t.Errorf("expected .config directory, got %q", filepath.Dir(path))
+
+	// verify path is under user home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("cannot get home directory: %v", err)
+	}
+	if !strings.HasPrefix(path, home) {
+		t.Errorf("expected path under home directory %q, got %q", home, path)
 	}
 }

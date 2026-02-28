@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"orx/internal/client"
 	"orx/internal/config"
@@ -328,7 +327,6 @@ func TestIntegration_FullFlow(t *testing.T) {
 	defer server.Close()
 
 	cfg := &config.Config{
-		SystemPrompt: "You are a test assistant",
 		Models: []config.Model{
 			{Name: "model-a", Model: "test/model-a", Enabled: true},
 			{Name: "model-b", Model: "test/model-b", Enabled: true},
@@ -336,9 +334,9 @@ func TestIntegration_FullFlow(t *testing.T) {
 	}
 
 	cl := client.New("test-api-key", false, nil, client.WithBaseURL(server.URL))
-	r := runner.New(cfg, cl, 30*time.Second, nil)
+	r := runner.New(cfg.EnabledModels(), cl, t.TempDir())
 
-	output, err := r.Run(t.Context(), "integration test prompt")
+	output, err := r.Run(t.Context(), "You are a test assistant", "integration test prompt")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
