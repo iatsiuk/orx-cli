@@ -24,6 +24,7 @@ func TestGenerateFromModels_RealAPIModels(t *testing.T) {
 			model: SelectedModel{
 				ID:                  "openai/gpt-5.2",
 				Name:                "OpenAI: GPT-5.2",
+				Enabled:             true,
 				SupportedParameters: []string{"include_reasoning", "max_tokens", "reasoning", "seed"},
 				DefaultParameters:   map[string]any{"temperature": nil},
 			},
@@ -35,6 +36,7 @@ func TestGenerateFromModels_RealAPIModels(t *testing.T) {
 			model: SelectedModel{
 				ID:                  "deepseek/deepseek-v3.2",
 				Name:                "DeepSeek V3.2",
+				Enabled:             true,
 				SupportedParameters: []string{"reasoning", "temperature", "top_p"},
 				DefaultParameters:   map[string]any{"temperature": float64(1), "top_p": float64(0.95)},
 			},
@@ -87,6 +89,7 @@ func TestGenerateFromModels_AllSupportedParamsInAvailable(t *testing.T) {
 		{
 			ID:                  "test/model",
 			Name:                "Test Model",
+			Enabled:             true,
 			SupportedParameters: params,
 			DefaultParameters:   map[string]any{},
 		},
@@ -108,6 +111,7 @@ func TestGenerateFromModels_DefaultParamsAsActive(t *testing.T) {
 		{
 			ID:                  "test/model",
 			Name:                "Test Model",
+			Enabled:             true,
 			SupportedParameters: []string{"temperature", "top_p", "max_tokens"},
 			DefaultParameters: map[string]any{
 				"temperature": float64(0.7),
@@ -151,8 +155,8 @@ func TestGenerateFromModels_MultipleModels(t *testing.T) {
 	t.Parallel()
 
 	models := []SelectedModel{
-		{ID: "model/a", Name: "Model A", SupportedParameters: []string{"temperature"}},
-		{ID: "model/b", Name: "Model B", SupportedParameters: []string{"max_tokens"}},
+		{ID: "model/a", Name: "Model A", Enabled: true, SupportedParameters: []string{"temperature"}},
+		{ID: "model/b", Name: "Model B", Enabled: true, SupportedParameters: []string{"max_tokens"}},
 	}
 
 	result := GenerateFromModels(models)
@@ -168,6 +172,41 @@ func TestGenerateFromModels_MultipleModels(t *testing.T) {
 	}
 }
 
+func TestGenerateFromModels_DisabledModel(t *testing.T) {
+	t.Parallel()
+
+	models := []SelectedModel{
+		{ID: "model/a", Name: "Model A", Enabled: false},
+	}
+
+	result := GenerateFromModels(models)
+
+	if !strings.Contains(result, `"enabled": false`) {
+		t.Error("expected \"enabled\": false in output")
+	}
+	if strings.Contains(result, "// available:") {
+		t.Error("expected no available comment for disabled model")
+	}
+}
+
+func TestGenerateFromModels_MixedEnabledDisabled(t *testing.T) {
+	t.Parallel()
+
+	models := []SelectedModel{
+		{ID: "model/a", Name: "Model A", Enabled: true, SupportedParameters: []string{"temperature"}},
+		{ID: "model/b", Name: "Model B", Enabled: false},
+	}
+
+	result := GenerateFromModels(models)
+
+	if strings.Count(result, `"enabled": true`) != 1 {
+		t.Error("expected 1 enabled model")
+	}
+	if strings.Count(result, `"enabled": false`) != 1 {
+		t.Error("expected 1 disabled model")
+	}
+}
+
 func TestGenerateFromModels_OutputIsValidJSON5(t *testing.T) {
 	t.Parallel()
 
@@ -175,6 +214,7 @@ func TestGenerateFromModels_OutputIsValidJSON5(t *testing.T) {
 		{
 			ID:                  "test/model",
 			Name:                "Test Model",
+			Enabled:             true,
 			SupportedParameters: []string{"temperature", "max_tokens"},
 			DefaultParameters:   map[string]any{"temperature": float64(0.7)},
 		},

@@ -38,13 +38,13 @@ When `orx init` runs and a config file already exists, pre-select previously con
 ## Implementation Steps
 
 ### Task 1: Add `Enabled` field to `SelectedModel` and update `GenerateFromModels`
-- [ ] write test in `generate_test.go`: `TestGenerateFromModels_DisabledModel` -- model with `Enabled: false` generates `"enabled": false` in output, no params
-- [ ] write test in `generate_test.go`: `TestGenerateFromModels_MixedEnabledDisabled` -- mix of enabled/disabled models generates correct `enabled` values
-- [ ] add `Enabled bool` field to `SelectedModel` in `config.go`
-- [ ] update `buildModel()` in `generate.go` to use `m.Enabled` instead of hardcoded `true`
-- [ ] update `getSelectedModels()` in `ui.go` to set `Enabled: true`
-- [ ] update existing tests in `generate_test.go` to set `Enabled: true` where needed (fix `TestGenerateFromModels_MultipleModels` and others)
-- [ ] run `make build` -- must pass before next task
+- [x] write test in `generate_test.go`: `TestGenerateFromModels_DisabledModel` -- model with `Enabled: false` generates `"enabled": false` in output, no params
+- [x] write test in `generate_test.go`: `TestGenerateFromModels_MixedEnabledDisabled` -- mix of enabled/disabled models generates correct `enabled` values
+- [x] add `Enabled bool` field to `SelectedModel` in `config.go`
+- [x] update `buildModel()` in `generate.go` to use `m.Enabled` instead of hardcoded `true`
+- [x] update `getSelectedModels()` in `ui.go` to set `Enabled: true`
+- [x] update existing tests in `generate_test.go` to set `Enabled: true` where needed (fix `TestGenerateFromModels_MultipleModels` and others)
+- [x] run `make build` -- must pass before next task
 
 ### Task 2: Add `PreSelected` to `modelsel.Options` and `newTuiApp`
 - [ ] write test in `modelsel_test.go`: `TestPreSelectModels` -- verify `newTuiApp` with preSelected IDs populates `selected` map correctly (only for models that exist in list)

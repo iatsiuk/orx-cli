@@ -35,7 +35,7 @@ func buildModel(m SelectedModel) generatedModel {
 	gm := generatedModel{
 		Name:         m.Name,
 		Model:        m.ID,
-		Enabled:      true,
+		Enabled:      m.Enabled,
 		ActiveParams: make(map[string]any),
 	}
 

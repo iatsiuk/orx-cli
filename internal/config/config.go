@@ -201,6 +201,7 @@ var ErrNoEnabledModels = errors.New("no enabled models in configuration")
 type SelectedModel struct {
 	ID                  string
 	Name                string
+	Enabled             bool
 	SupportedParameters []string
 	DefaultParameters   map[string]any
 }

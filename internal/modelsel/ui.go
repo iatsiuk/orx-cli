@@ -278,6 +278,7 @@ func (a *tuiApp) getSelectedModels() []config.SelectedModel {
 			result = append(result, config.SelectedModel{
 				ID:                  a.models[i].ID,
 				Name:                a.models[i].Name,
+				Enabled:             true,
 				SupportedParameters: a.models[i].SupportedParameters,
 				DefaultParameters:   a.models[i].DefaultParameters,
 			})
