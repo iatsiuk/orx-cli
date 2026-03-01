@@ -13,9 +13,10 @@ import (
 var ErrNoTextModels = errors.New("no text models available")
 
 type Options struct {
-	Verbose  bool
-	VerboseW io.Writer
-	BaseURL  string
+	Verbose     bool
+	VerboseW    io.Writer
+	BaseURL     string
+	PreSelected []string
 }
 
 // Run displays TUI for model selection. Returns nil if user cancelled.
@@ -43,7 +44,7 @@ func Run(ctx context.Context, token string, opts *Options) ([]config.SelectedMod
 
 	sorted := sortByProvider(filtered)
 
-	app := newTuiApp(sorted)
+	app := newTuiApp(sorted, opts.PreSelected)
 	if err := app.run(); err != nil {
 		return nil, fmt.Errorf("run TUI: %w", err)
 	}

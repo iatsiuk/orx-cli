@@ -26,12 +26,26 @@ type tuiApp struct {
 	confirmed bool
 }
 
-func newTuiApp(models []APIModel) *tuiApp {
+func newTuiApp(models []APIModel, preSelected []string) *tuiApp {
+	selected := make(map[string]bool)
+
+	if len(preSelected) > 0 {
+		available := make(map[string]bool, len(models))
+		for i := range models {
+			available[models[i].ID] = true
+		}
+		for _, id := range preSelected {
+			if available[id] {
+				selected[id] = true
+			}
+		}
+	}
+
 	a := &tuiApp{
 		app:      tview.NewApplication(),
 		models:   models,
 		filtered: models,
-		selected: make(map[string]bool),
+		selected: selected,
 	}
 	a.buildComponents()
 	a.buildLayout()

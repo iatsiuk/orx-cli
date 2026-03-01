@@ -47,13 +47,13 @@ When `orx init` runs and a config file already exists, pre-select previously con
 - [x] run `make build` -- must pass before next task
 
 ### Task 2: Add `PreSelected` to `modelsel.Options` and `newTuiApp`
-- [ ] write test in `modelsel_test.go`: `TestPreSelectModels` -- verify `newTuiApp` with preSelected IDs populates `selected` map correctly (only for models that exist in list)
-- [ ] write test in `modelsel_test.go`: `TestPreSelectModels_NonExistent` -- preSelected ID not in model list is ignored
-- [ ] add `PreSelected []string` field to `Options` struct in `modelsel.go`
-- [ ] change `newTuiApp(models []APIModel)` signature to `newTuiApp(models []APIModel, preSelected []string)`
-- [ ] implement pre-selection: build available set from models, populate `selected` map for matching IDs
-- [ ] update `Run()` to pass `opts.PreSelected` to `newTuiApp()`
-- [ ] run `make build` -- must pass before next task
+- [x] write test in `modelsel_test.go`: `TestPreSelectModels` -- verify `newTuiApp` with preSelected IDs populates `selected` map correctly (only for models that exist in list)
+- [x] write test in `modelsel_test.go`: `TestPreSelectModels_NonExistent` -- preSelected ID not in model list is ignored
+- [x] add `PreSelected []string` field to `Options` struct in `modelsel.go`
+- [x] change `newTuiApp(models []APIModel)` signature to `newTuiApp(models []APIModel, preSelected []string)`
+- [x] implement pre-selection: build available set from models, populate `selected` map for matching IDs
+- [x] update `Run()` to pass `opts.PreSelected` to `newTuiApp()`
+- [x] run `make build` -- must pass before next task
 
 ### Task 3: Load existing config and merge disabled models in `runInitInteractive`
 - [ ] write test in `main_test.go`: `TestMergeDisabledModels` -- helper function that computes disabled models from old config vs selected result
