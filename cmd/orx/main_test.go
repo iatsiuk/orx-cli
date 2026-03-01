@@ -293,6 +293,170 @@ func TestReadPrompt_FileOverridesStdin(t *testing.T) {
 	}
 }
 
+func TestExtractPreSelected_EnabledModels(t *testing.T) {
+	t.Parallel()
+
+	models := []config.Model{
+		{Model: "provider/model-a", Enabled: true},
+		{Model: "provider/model-b", Enabled: false},
+		{Model: "provider/model-c", Enabled: true},
+	}
+
+	result := extractPreSelected(models)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 pre-selected, got %d", len(result))
+	}
+	if result[0] != "provider/model-a" {
+		t.Errorf("expected model-a, got %q", result[0])
+	}
+	if result[1] != "provider/model-c" {
+		t.Errorf("expected model-c, got %q", result[1])
+	}
+}
+
+func TestExtractPreSelected_DisabledModelsExcluded(t *testing.T) {
+	t.Parallel()
+
+	models := []config.Model{
+		{Model: "provider/model-a", Enabled: false},
+		{Model: "provider/model-b", Enabled: false},
+	}
+
+	result := extractPreSelected(models)
+
+	if len(result) != 0 {
+		t.Errorf("expected no pre-selected models, got %d: %v", len(result), result)
+	}
+}
+
+func TestExtractPreSelected_NilInput(t *testing.T) {
+	t.Parallel()
+
+	result := extractPreSelected(nil)
+
+	if result != nil {
+		t.Errorf("expected nil for nil input, got %v", result)
+	}
+}
+
+func TestMergeDisabledModels_DeselectedModel(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Model A", Model: "provider/model-a"},
+		{Name: "Model B", Model: "provider/model-b"},
+	}
+	selected := []config.SelectedModel{
+		{ID: "provider/model-a", Name: "Model A", Enabled: true},
+	}
+
+	result := mergeDisabledModels(existing, selected)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(result))
+	}
+	byID := make(map[string]config.SelectedModel, len(result))
+	for _, m := range result {
+		byID[m.ID] = m
+	}
+	if a, ok := byID["provider/model-a"]; !ok || !a.Enabled {
+		t.Errorf("model-a should be enabled: %+v", a)
+	}
+	b, ok := byID["provider/model-b"]
+	if !ok || b.Enabled {
+		t.Errorf("model-b should be disabled: %+v", b)
+	}
+	if b.Name != "Model B" {
+		t.Errorf("model-b should preserve name, got %q", b.Name)
+	}
+}
+
+func TestMergeDisabledModels_NotInAPI(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Old Model", Model: "provider/old-model"},
+	}
+	// TUI didn't show old-model (not in API), so it's not in selected
+	selected := []config.SelectedModel{
+		{ID: "provider/new-model", Name: "New Model", Enabled: true},
+	}
+
+	result := mergeDisabledModels(existing, selected)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(result))
+	}
+	byID := make(map[string]config.SelectedModel, len(result))
+	for _, m := range result {
+		byID[m.ID] = m
+	}
+	if nm, ok := byID["provider/new-model"]; !ok || !nm.Enabled {
+		t.Errorf("new-model should be enabled: %+v", nm)
+	}
+	if om, ok := byID["provider/old-model"]; !ok || om.Enabled {
+		t.Errorf("old-model should be disabled: %+v", om)
+	}
+}
+
+func TestMergeDisabledModels_SelectedNotDuplicated(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Model A", Model: "provider/model-a"},
+	}
+	selected := []config.SelectedModel{
+		{ID: "provider/model-a", Name: "Model A", Enabled: true},
+	}
+
+	result := mergeDisabledModels(existing, selected)
+
+	if len(result) != 1 {
+		t.Fatalf("selected model should not be duplicated, got %d results", len(result))
+	}
+	if !result[0].Enabled {
+		t.Error("model-a should stay enabled")
+	}
+}
+
+func TestMergeDisabledModels_NoExisting(t *testing.T) {
+	t.Parallel()
+
+	selected := []config.SelectedModel{
+		{ID: "provider/model-a", Name: "Model A", Enabled: true},
+	}
+
+	result := mergeDisabledModels(nil, selected)
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	if result[0].ID != "provider/model-a" || !result[0].Enabled {
+		t.Errorf("unexpected result: %+v", result[0])
+	}
+}
+
+func TestMergeDisabledModels_EmptySelected(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Model A", Model: "provider/model-a"},
+		{Name: "Model B", Model: "provider/model-b"},
+	}
+
+	result := mergeDisabledModels(existing, []config.SelectedModel{})
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 disabled results, got %d", len(result))
+	}
+	for _, m := range result {
+		if m.Enabled {
+			t.Errorf("expected model %s to be disabled", m.ID)
+		}
+	}
+}
+
 //nolint:cyclop // integration test with multiple assertions
 func TestIntegration_FullFlow(t *testing.T) {
 	t.Parallel()

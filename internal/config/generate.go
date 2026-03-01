@@ -35,15 +35,17 @@ func buildModel(m SelectedModel) generatedModel {
 	gm := generatedModel{
 		Name:         m.Name,
 		Model:        m.ID,
-		Enabled:      true,
+		Enabled:      m.Enabled,
 		ActiveParams: make(map[string]any),
 	}
 
-	for _, param := range m.SupportedParameters {
-		if val, ok := m.DefaultParameters[param]; ok && val != nil {
-			gm.ActiveParams[param] = val
-		} else {
-			gm.AvailableKeys = append(gm.AvailableKeys, param)
+	if m.Enabled {
+		for _, param := range m.SupportedParameters {
+			if val, ok := m.DefaultParameters[param]; ok && val != nil {
+				gm.ActiveParams[param] = val
+			} else {
+				gm.AvailableKeys = append(gm.AvailableKeys, param)
+			}
 		}
 	}
 

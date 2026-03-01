@@ -309,9 +309,18 @@ func runInitInteractive(cmd *cobra.Command, opts *options, stderr io.Writer, pat
 		verboseW = stderr
 	}
 
+	// load existing config for pre-selection (best-effort, ignore errors)
+	var existingModels []config.Model
+	var preSelected []string
+	if existing, err := config.Load(path); err == nil {
+		existingModels = existing.Models
+		preSelected = extractPreSelected(existing.Models)
+	}
+
 	selected, err := modelsel.Run(ctx, token, &modelsel.Options{
-		Verbose:  opts.verbose,
-		VerboseW: verboseW,
+		Verbose:     opts.verbose,
+		VerboseW:    verboseW,
+		PreSelected: preSelected,
 	})
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -322,7 +331,8 @@ func runInitInteractive(cmd *cobra.Command, opts *options, stderr io.Writer, pat
 		return nil
 	}
 
-	content := config.GenerateFromModels(selected)
+	all := mergeDisabledModels(existingModels, selected)
+	content := config.GenerateFromModels(all)
 
 	if err := config.WriteConfig(path, content); err != nil {
 		_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -331,4 +341,33 @@ func runInitInteractive(cmd *cobra.Command, opts *options, stderr io.Writer, pat
 
 	_, _ = fmt.Fprintf(stderr, "Configuration file created: %s\n", path)
 	return nil
+}
+
+func extractPreSelected(models []config.Model) []string {
+	var ids []string
+	for i := range models {
+		if models[i].Enabled {
+			ids = append(ids, models[i].Model)
+		}
+	}
+	return ids
+}
+
+func mergeDisabledModels(existing []config.Model, selected []config.SelectedModel) []config.SelectedModel {
+	selectedSet := make(map[string]struct{}, len(selected))
+	for _, m := range selected {
+		selectedSet[m.ID] = struct{}{}
+	}
+
+	result := append([]config.SelectedModel(nil), selected...)
+	for i := range existing {
+		if _, ok := selectedSet[existing[i].Model]; !ok {
+			result = append(result, config.SelectedModel{
+				ID:      existing[i].Model,
+				Name:    existing[i].Name,
+				Enabled: false,
+			})
+		}
+	}
+	return result
 }

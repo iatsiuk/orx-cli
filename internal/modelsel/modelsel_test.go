@@ -199,3 +199,50 @@ func TestFormatContextLength(t *testing.T) {
 		}
 	}
 }
+
+func TestPreSelectModels(t *testing.T) {
+	t.Parallel()
+
+	models := []APIModel{
+		{ID: "openai/gpt-4o", Name: "GPT-4o"},
+		{ID: "anthropic/claude-3", Name: "Claude 3"},
+		{ID: "google/gemini-pro", Name: "Gemini Pro"},
+	}
+
+	preSelected := []string{"openai/gpt-4o", "google/gemini-pro"}
+	app := newTuiApp(models, preSelected)
+
+	if !app.selected["openai/gpt-4o"] {
+		t.Error("expected openai/gpt-4o to be pre-selected")
+	}
+	if !app.selected["google/gemini-pro"] {
+		t.Error("expected google/gemini-pro to be pre-selected")
+	}
+	if app.selected["anthropic/claude-3"] {
+		t.Error("expected anthropic/claude-3 to NOT be pre-selected")
+	}
+	if len(app.selected) != 2 {
+		t.Errorf("expected 2 selected models, got %d", len(app.selected))
+	}
+}
+
+func TestPreSelectModels_NonExistent(t *testing.T) {
+	t.Parallel()
+
+	models := []APIModel{
+		{ID: "openai/gpt-4o", Name: "GPT-4o"},
+	}
+
+	preSelected := []string{"openai/gpt-4o", "nonexistent/model"}
+	app := newTuiApp(models, preSelected)
+
+	if !app.selected["openai/gpt-4o"] {
+		t.Error("expected openai/gpt-4o to be pre-selected")
+	}
+	if app.selected["nonexistent/model"] {
+		t.Error("expected nonexistent/model to NOT be in selected map")
+	}
+	if len(app.selected) != 1 {
+		t.Errorf("expected 1 selected model, got %d", len(app.selected))
+	}
+}
