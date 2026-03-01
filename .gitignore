@@ -15,3 +15,6 @@ vendor/
 
 # OS
 .DS_Store
+
+# ralphex progress logs
+.ralphex/progress/
