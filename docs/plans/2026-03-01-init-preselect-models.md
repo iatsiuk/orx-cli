@@ -67,14 +67,14 @@ When `orx init` runs and a config file already exists, pre-select previously con
 - [x] run `make build` -- must pass before next task
 
 ### Task 4: Verify acceptance criteria
-- [ ] verify: existing config with enabled models -> pre-selected in TUI
-- [ ] verify: existing config with disabled models -> NOT pre-selected in TUI
-- [ ] verify: deselecting a model -> `enabled: false` in new config
-- [ ] verify: model not in API -> `enabled: false` in new config
-- [ ] verify: no existing config -> clean start, no pre-selection
-- [ ] verify: config load error (corrupted file) -> graceful fallback, no pre-selection
-- [ ] run full test suite with `go test -race ./...`
-- [ ] run `make build` -- linter must pass
+- [x] verify: existing config with enabled models -> pre-selected in TUI
+- [x] verify: existing config with disabled models -> NOT pre-selected in TUI
+- [x] verify: deselecting a model -> `enabled: false` in new config
+- [x] verify: model not in API -> `enabled: false` in new config
+- [x] verify: no existing config -> clean start, no pre-selection
+- [x] verify: config load error (corrupted file) -> graceful fallback, no pre-selection
+- [x] run full test suite with `go test -race ./...`
+- [x] run `make build` -- linter must pass
 
 ## Technical Details
 

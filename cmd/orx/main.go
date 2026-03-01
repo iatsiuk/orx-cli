@@ -314,11 +314,7 @@ func runInitInteractive(cmd *cobra.Command, opts *options, stderr io.Writer, pat
 	var preSelected []string
 	if existing, err := config.Load(path); err == nil {
 		existingModels = existing.Models
-		for i := range existing.Models {
-			if existing.Models[i].Enabled {
-				preSelected = append(preSelected, existing.Models[i].Model)
-			}
-		}
+		preSelected = extractPreSelected(existing.Models)
 	}
 
 	selected, err := modelsel.Run(ctx, token, &modelsel.Options{
@@ -345,6 +341,16 @@ func runInitInteractive(cmd *cobra.Command, opts *options, stderr io.Writer, pat
 
 	_, _ = fmt.Fprintf(stderr, "Configuration file created: %s\n", path)
 	return nil
+}
+
+func extractPreSelected(models []config.Model) []string {
+	var ids []string
+	for i := range models {
+		if models[i].Enabled {
+			ids = append(ids, models[i].Model)
+		}
+	}
+	return ids
 }
 
 func mergeDisabledModels(existing []config.Model, selected []config.SelectedModel) []config.SelectedModel {

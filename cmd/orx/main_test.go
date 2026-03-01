@@ -293,6 +293,53 @@ func TestReadPrompt_FileOverridesStdin(t *testing.T) {
 	}
 }
 
+func TestExtractPreSelected_EnabledModels(t *testing.T) {
+	t.Parallel()
+
+	models := []config.Model{
+		{Model: "provider/model-a", Enabled: true},
+		{Model: "provider/model-b", Enabled: false},
+		{Model: "provider/model-c", Enabled: true},
+	}
+
+	result := extractPreSelected(models)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 pre-selected, got %d", len(result))
+	}
+	if result[0] != "provider/model-a" {
+		t.Errorf("expected model-a, got %q", result[0])
+	}
+	if result[1] != "provider/model-c" {
+		t.Errorf("expected model-c, got %q", result[1])
+	}
+}
+
+func TestExtractPreSelected_DisabledModelsExcluded(t *testing.T) {
+	t.Parallel()
+
+	models := []config.Model{
+		{Model: "provider/model-a", Enabled: false},
+		{Model: "provider/model-b", Enabled: false},
+	}
+
+	result := extractPreSelected(models)
+
+	if len(result) != 0 {
+		t.Errorf("expected no pre-selected models, got %d: %v", len(result), result)
+	}
+}
+
+func TestExtractPreSelected_NilInput(t *testing.T) {
+	t.Parallel()
+
+	result := extractPreSelected(nil)
+
+	if result != nil {
+		t.Errorf("expected nil for nil input, got %v", result)
+	}
+}
+
 func TestMergeDisabledModels_DeselectedModel(t *testing.T) {
 	t.Parallel()
 
