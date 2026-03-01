@@ -293,6 +293,96 @@ func TestReadPrompt_FileOverridesStdin(t *testing.T) {
 	}
 }
 
+func TestMergeDisabledModels_DeselectedModel(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Model A", Model: "provider/model-a"},
+		{Name: "Model B", Model: "provider/model-b"},
+	}
+	selected := []config.SelectedModel{
+		{ID: "provider/model-a", Name: "Model A", Enabled: true},
+	}
+
+	result := mergeDisabledModels(existing, selected)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(result))
+	}
+	// model-a stays enabled
+	if result[0].ID != "provider/model-a" || !result[0].Enabled {
+		t.Errorf("model-a should be enabled: %+v", result[0])
+	}
+	// model-b deselected -> disabled
+	if result[1].ID != "provider/model-b" || result[1].Enabled {
+		t.Errorf("model-b should be disabled: %+v", result[1])
+	}
+	if result[1].Name != "Model B" {
+		t.Errorf("model-b should preserve name, got %q", result[1].Name)
+	}
+}
+
+func TestMergeDisabledModels_NotInAPI(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Old Model", Model: "provider/old-model"},
+	}
+	// TUI didn't show old-model (not in API), so it's not in selected
+	selected := []config.SelectedModel{
+		{ID: "provider/new-model", Name: "New Model", Enabled: true},
+	}
+
+	result := mergeDisabledModels(existing, selected)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(result))
+	}
+	if result[0].ID != "provider/new-model" || !result[0].Enabled {
+		t.Errorf("new-model should be enabled: %+v", result[0])
+	}
+	if result[1].ID != "provider/old-model" || result[1].Enabled {
+		t.Errorf("old-model should be disabled: %+v", result[1])
+	}
+}
+
+func TestMergeDisabledModels_SelectedNotDuplicated(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Model A", Model: "provider/model-a"},
+	}
+	selected := []config.SelectedModel{
+		{ID: "provider/model-a", Name: "Model A", Enabled: true},
+	}
+
+	result := mergeDisabledModels(existing, selected)
+
+	if len(result) != 1 {
+		t.Fatalf("selected model should not be duplicated, got %d results", len(result))
+	}
+	if !result[0].Enabled {
+		t.Error("model-a should stay enabled")
+	}
+}
+
+func TestMergeDisabledModels_NoExisting(t *testing.T) {
+	t.Parallel()
+
+	selected := []config.SelectedModel{
+		{ID: "provider/model-a", Name: "Model A", Enabled: true},
+	}
+
+	result := mergeDisabledModels(nil, selected)
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	if result[0].ID != "provider/model-a" || !result[0].Enabled {
+		t.Errorf("unexpected result: %+v", result[0])
+	}
+}
+
 //nolint:cyclop // integration test with multiple assertions
 func TestIntegration_FullFlow(t *testing.T) {
 	t.Parallel()

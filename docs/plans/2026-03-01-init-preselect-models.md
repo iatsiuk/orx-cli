@@ -56,15 +56,15 @@ When `orx init` runs and a config file already exists, pre-select previously con
 - [x] run `make build` -- must pass before next task
 
 ### Task 3: Load existing config and merge disabled models in `runInitInteractive`
-- [ ] write test in `main_test.go`: `TestMergeDisabledModels` -- helper function that computes disabled models from old config vs selected result
-- [ ] write test: old config model deselected in TUI -> appears in result with `Enabled: false`
-- [ ] write test: old config model not in API -> appears in result with `Enabled: false`
-- [ ] write test: old config model selected in TUI -> not duplicated, stays `Enabled: true`
-- [ ] write test: no existing config -> no disabled models
-- [ ] extract `mergeDisabledModels(existing []config.Model, selected []config.SelectedModel) []config.SelectedModel` function
-- [ ] update `runInitInteractive()`: try `config.Load(path)` before TUI, extract enabled model IDs for `PreSelected`
-- [ ] update `runInitInteractive()`: after TUI, call `mergeDisabledModels()` to append disabled entries
-- [ ] run `make build` -- must pass before next task
+- [x] write test in `main_test.go`: `TestMergeDisabledModels` -- helper function that computes disabled models from old config vs selected result
+- [x] write test: old config model deselected in TUI -> appears in result with `Enabled: false`
+- [x] write test: old config model not in API -> appears in result with `Enabled: false`
+- [x] write test: old config model selected in TUI -> not duplicated, stays `Enabled: true`
+- [x] write test: no existing config -> no disabled models
+- [x] extract `mergeDisabledModels(existing []config.Model, selected []config.SelectedModel) []config.SelectedModel` function
+- [x] update `runInitInteractive()`: try `config.Load(path)` before TUI, extract enabled model IDs for `PreSelected`
+- [x] update `runInitInteractive()`: after TUI, call `mergeDisabledModels()` to append disabled entries
+- [x] run `make build` -- must pass before next task
 
 ### Task 4: Verify acceptance criteria
 - [ ] verify: existing config with enabled models -> pre-selected in TUI
