@@ -176,7 +176,7 @@ func TestGenerateFromModels_DisabledModel(t *testing.T) {
 	t.Parallel()
 
 	models := []SelectedModel{
-		{ID: "model/a", Name: "Model A", Enabled: false},
+		{ID: "model/a", Name: "Model A", Enabled: false, SupportedParameters: []string{"temperature"}},
 	}
 
 	result := GenerateFromModels(models)

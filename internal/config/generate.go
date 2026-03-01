@@ -39,11 +39,13 @@ func buildModel(m SelectedModel) generatedModel {
 		ActiveParams: make(map[string]any),
 	}
 
-	for _, param := range m.SupportedParameters {
-		if val, ok := m.DefaultParameters[param]; ok && val != nil {
-			gm.ActiveParams[param] = val
-		} else {
-			gm.AvailableKeys = append(gm.AvailableKeys, param)
+	if m.Enabled {
+		for _, param := range m.SupportedParameters {
+			if val, ok := m.DefaultParameters[param]; ok && val != nil {
+				gm.ActiveParams[param] = val
+			} else {
+				gm.AvailableKeys = append(gm.AvailableKeys, param)
+			}
 		}
 	}
 

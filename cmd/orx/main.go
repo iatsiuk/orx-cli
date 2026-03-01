@@ -359,7 +359,7 @@ func mergeDisabledModels(existing []config.Model, selected []config.SelectedMode
 		selectedSet[m.ID] = struct{}{}
 	}
 
-	result := selected
+	result := append([]config.SelectedModel(nil), selected...)
 	for i := range existing {
 		if _, ok := selectedSet[existing[i].Model]; !ok {
 			result = append(result, config.SelectedModel{

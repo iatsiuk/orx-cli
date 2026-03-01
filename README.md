@@ -82,6 +82,13 @@ Subcommands:
   init    Interactive model selection and configuration file generation
 ```
 
+Re-running `orx init` when a config already exists pre-selects previously enabled
+models in the TUI. After confirming:
+- Selected models are written as `"enabled": true`
+- Deselected models are written as `"enabled": false` (not removed)
+- Models from the old config absent from the API are preserved as `"enabled": false`
+- If the existing config fails to load, the TUI starts with no pre-selection
+
 ### Examples
 
 ```bash

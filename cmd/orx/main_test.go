@@ -356,16 +356,19 @@ func TestMergeDisabledModels_DeselectedModel(t *testing.T) {
 	if len(result) != 2 {
 		t.Fatalf("expected 2 results, got %d", len(result))
 	}
-	// model-a stays enabled
-	if result[0].ID != "provider/model-a" || !result[0].Enabled {
-		t.Errorf("model-a should be enabled: %+v", result[0])
+	byID := make(map[string]config.SelectedModel, len(result))
+	for _, m := range result {
+		byID[m.ID] = m
 	}
-	// model-b deselected -> disabled
-	if result[1].ID != "provider/model-b" || result[1].Enabled {
-		t.Errorf("model-b should be disabled: %+v", result[1])
+	if a, ok := byID["provider/model-a"]; !ok || !a.Enabled {
+		t.Errorf("model-a should be enabled: %+v", a)
 	}
-	if result[1].Name != "Model B" {
-		t.Errorf("model-b should preserve name, got %q", result[1].Name)
+	b, ok := byID["provider/model-b"]
+	if !ok || b.Enabled {
+		t.Errorf("model-b should be disabled: %+v", b)
+	}
+	if b.Name != "Model B" {
+		t.Errorf("model-b should preserve name, got %q", b.Name)
 	}
 }
 
@@ -385,11 +388,15 @@ func TestMergeDisabledModels_NotInAPI(t *testing.T) {
 	if len(result) != 2 {
 		t.Fatalf("expected 2 results, got %d", len(result))
 	}
-	if result[0].ID != "provider/new-model" || !result[0].Enabled {
-		t.Errorf("new-model should be enabled: %+v", result[0])
+	byID := make(map[string]config.SelectedModel, len(result))
+	for _, m := range result {
+		byID[m.ID] = m
 	}
-	if result[1].ID != "provider/old-model" || result[1].Enabled {
-		t.Errorf("old-model should be disabled: %+v", result[1])
+	if nm, ok := byID["provider/new-model"]; !ok || !nm.Enabled {
+		t.Errorf("new-model should be enabled: %+v", nm)
+	}
+	if om, ok := byID["provider/old-model"]; !ok || om.Enabled {
+		t.Errorf("old-model should be disabled: %+v", om)
 	}
 }
 
@@ -427,6 +434,26 @@ func TestMergeDisabledModels_NoExisting(t *testing.T) {
 	}
 	if result[0].ID != "provider/model-a" || !result[0].Enabled {
 		t.Errorf("unexpected result: %+v", result[0])
+	}
+}
+
+func TestMergeDisabledModels_EmptySelected(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Model A", Model: "provider/model-a"},
+		{Name: "Model B", Model: "provider/model-b"},
+	}
+
+	result := mergeDisabledModels(existing, []config.SelectedModel{})
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 disabled results, got %d", len(result))
+	}
+	for _, m := range result {
+		if m.Enabled {
+			t.Errorf("expected model %s to be disabled", m.ID)
+		}
 	}
 }
 
