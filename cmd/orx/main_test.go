@@ -180,69 +180,6 @@ func TestInitCmd_CreatesNestedDirs(t *testing.T) {
 	}
 }
 
-func TestInitCmd_ExistingFile(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name            string
-		input           string
-		expectOverwrite bool
-		expectMessage   string
-	}{
-		{"abort on n", "n\n", false, "Aborted"},
-		{"overwrite on y", "y\n", true, "Configuration file created"},
-		{"overwrite on yes", "yes\n", true, "Configuration file created"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			tmpDir := t.TempDir()
-			outPath := filepath.Join(tmpDir, "orx.json")
-
-			originalContent := []byte(`{"existing": true}`)
-			if err := os.WriteFile(outPath, originalContent, 0o600); err != nil {
-				t.Fatal(err)
-			}
-
-			stdin := strings.NewReader(tt.input)
-			stderr := &bytes.Buffer{}
-
-			cmd := newRootCmd()
-			cmd.SetIn(stdin)
-			cmd.SetErr(stderr)
-			cmd.SetArgs([]string{"init", "-o", outPath, "--template"})
-
-			err := cmd.Execute()
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			content, _ := os.ReadFile(outPath)
-			wasOverwritten := !bytes.Equal(content, originalContent)
-
-			if wasOverwritten != tt.expectOverwrite {
-				t.Errorf("overwrite=%v, want %v", wasOverwritten, tt.expectOverwrite)
-			}
-
-			if !strings.Contains(stderr.String(), tt.expectMessage) {
-				t.Errorf("stderr %q should contain %q", stderr.String(), tt.expectMessage)
-			}
-
-			if tt.expectOverwrite {
-				cfg, err := config.Load(outPath)
-				if err != nil {
-					t.Fatalf("new config should be valid: %v", err)
-				}
-				if len(cfg.Models) == 0 {
-					t.Error("expected models in generated config")
-				}
-			}
-		})
-	}
-}
-
 func TestReadPrompt_FromStdin(t *testing.T) {
 	t.Parallel()
 

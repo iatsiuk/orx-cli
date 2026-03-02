@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -253,34 +251,11 @@ func runInit(cmd *cobra.Command, opts *options) error {
 		path = config.DefaultConfigPath()
 	}
 
-	if aborted := confirmOverwrite(cmd, path); aborted {
-		return nil
-	}
-
 	if useTemplate {
 		return runInitTemplate(stderr, path)
 	}
 
 	return runInitInteractive(cmd, opts, stderr, path)
-}
-
-func confirmOverwrite(cmd *cobra.Command, path string) (aborted bool) {
-	if _, err := os.Stat(path); err != nil {
-		return false
-	}
-
-	stderr := cmd.ErrOrStderr()
-	_, _ = fmt.Fprintf(stderr, "File already exists: %s\nOverwrite? [y/N]: ", path)
-
-	reader := bufio.NewReader(cmd.InOrStdin())
-	answer, _ := reader.ReadString('\n')
-	answer = strings.TrimSpace(strings.ToLower(answer))
-
-	if answer != "y" && answer != "yes" {
-		_, _ = fmt.Fprintln(stderr, "Aborted")
-		return true
-	}
-	return false
 }
 
 func runInitTemplate(stderr io.Writer, path string) error {
