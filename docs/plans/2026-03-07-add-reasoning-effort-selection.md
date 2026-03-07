@@ -112,17 +112,17 @@ Currently `mergeDisabledModels()` creates new `SelectedModel{ID, Name, Enabled}`
 - [x] run tests - must pass before next task
 
 ### Task 6: Verify acceptance criteria
-- [ ] verify: selecting a reasoning model and setting effort generates `"reasoning": {"effort": "..."}` in config
-- [ ] verify: skipping effort for a reasoning model keeps `reasoning` in `// available:` comment
-- [ ] verify: non-reasoning models are unaffected
-- [ ] verify: second screen is skipped when no reasoning models selected
-- [ ] verify: Esc on reasoning screen cancels only reasoning setup, not entire init
-- [ ] verify: re-running `orx init` with existing config preserves all user-configured parameters (temperature, reasoning, etc.)
-- [ ] verify: existing reasoning effort is pre-loaded on the reasoning TUI screen
-- [ ] verify: disabled models in generated config retain their existing parameters
-- [ ] run full test suite: `go test ./...`
-- [ ] run linter: `make build`
-- [ ] verify test coverage for new code
+- [x] verify: selecting a reasoning model and setting effort generates `"reasoning": {"effort": "..."}` in config
+- [x] verify: skipping effort for a reasoning model keeps `reasoning` in `// available:` comment
+- [x] verify: non-reasoning models are unaffected
+- [x] verify: second screen is skipped when no reasoning models selected
+- [x] verify: Esc on reasoning screen cancels only reasoning setup, not entire init
+- [x] verify: re-running `orx init` with existing config preserves all user-configured parameters (temperature, reasoning, etc.)
+- [x] verify: existing reasoning effort is pre-loaded on the reasoning TUI screen
+- [x] verify: disabled models in generated config retain their existing parameters
+- [x] run full test suite: `go test ./...`
+- [x] run linter: `make build`
+- [x] verify test coverage for new code
 
 ### Task 7: [Final] Update documentation
 - [ ] update README.md if init command documentation needs changes
