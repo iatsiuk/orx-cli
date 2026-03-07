@@ -170,3 +170,14 @@ func (a *reasoningTuiApp) getEfforts() map[string]string {
 func (a *reasoningTuiApp) run() error {
 	return a.app.Run()
 }
+
+func applyEfforts(models []config.SelectedModel, efforts map[string]string) []config.SelectedModel {
+	result := make([]config.SelectedModel, len(models))
+	copy(result, models)
+	for i := range result {
+		if effort, ok := efforts[result[i].ID]; ok {
+			result[i].ReasoningEffort = effort
+		}
+	}
+	return result
+}

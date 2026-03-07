@@ -53,5 +53,18 @@ func Run(ctx context.Context, token string, opts *Options) ([]config.SelectedMod
 		return nil, nil
 	}
 
-	return app.getSelectedModels(), nil
+	selected := app.getSelectedModels()
+
+	reasoningModels := filterReasoningSelectedModels(selected)
+	if len(reasoningModels) > 0 {
+		rApp := newReasoningTuiApp(reasoningModels)
+		if err := rApp.run(); err != nil {
+			return nil, fmt.Errorf("run reasoning TUI: %w", err)
+		}
+		if rApp.confirmed {
+			selected = applyEfforts(selected, rApp.getEfforts())
+		}
+	}
+
+	return selected, nil
 }

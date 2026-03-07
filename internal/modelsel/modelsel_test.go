@@ -395,6 +395,47 @@ func TestReasoningTui_CycleEffort(t *testing.T) {
 	}
 }
 
+func TestApplyEfforts(t *testing.T) {
+	t.Parallel()
+
+	models := []config.SelectedModel{
+		{ID: "openai/o3", SupportedParameters: []string{"reasoning"}},
+		{ID: "anthropic/claude-opus", SupportedParameters: []string{"reasoning"}},
+		{ID: "openai/gpt-4o", SupportedParameters: []string{"temperature"}},
+	}
+
+	efforts := map[string]string{
+		"openai/o3":             "high",
+		"anthropic/claude-opus": "medium",
+	}
+
+	result := applyEfforts(models, efforts)
+
+	if result[0].ReasoningEffort != "high" {
+		t.Errorf("expected openai/o3 effort = 'high', got %q", result[0].ReasoningEffort)
+	}
+	if result[1].ReasoningEffort != "medium" {
+		t.Errorf("expected anthropic/claude-opus effort = 'medium', got %q", result[1].ReasoningEffort)
+	}
+	if result[2].ReasoningEffort != "" {
+		t.Errorf("expected openai/gpt-4o effort to be empty, got %q", result[2].ReasoningEffort)
+	}
+}
+
+func TestApplyEfforts_EmptyEfforts(t *testing.T) {
+	t.Parallel()
+
+	models := []config.SelectedModel{
+		{ID: "openai/o3", SupportedParameters: []string{"reasoning"}},
+	}
+
+	result := applyEfforts(models, map[string]string{})
+
+	if result[0].ReasoningEffort != "" {
+		t.Errorf("expected empty effort, got %q", result[0].ReasoningEffort)
+	}
+}
+
 func TestReasoningTui_GetEfforts(t *testing.T) {
 	t.Parallel()
 

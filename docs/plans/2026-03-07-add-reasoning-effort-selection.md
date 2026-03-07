@@ -104,12 +104,12 @@ Currently `mergeDisabledModels()` creates new `SelectedModel{ID, Name, Enabled}`
 - [x] run tests - must pass before next task
 
 ### Task 5: Integrate reasoning screen into modelsel.Run()
-- [ ] update `modelsel.go` `Run()`: after model selection TUI, call `filterReasoningSelectedModels()` on selected models
-- [ ] if reasoning models exist, create and run `reasoningTuiApp` with filtered models
-- [ ] apply returned efforts to corresponding `SelectedModel.ReasoningEffort` before returning
-- [ ] if no reasoning models or user cancels reasoning screen (Esc), proceed as before (no effort set)
-- [ ] write test: `TestApplyEfforts` - pure function that applies `map[string]string` efforts to `[]SelectedModel`, verify correct models get effort values
-- [ ] run tests - must pass before next task
+- [x] update `modelsel.go` `Run()`: after model selection TUI, call `filterReasoningSelectedModels()` on selected models
+- [x] if reasoning models exist, create and run `reasoningTuiApp` with filtered models
+- [x] apply returned efforts to corresponding `SelectedModel.ReasoningEffort` before returning
+- [x] if no reasoning models or user cancels reasoning screen (Esc), proceed as before (no effort set)
+- [x] write test: `TestApplyEfforts` - pure function that applies `map[string]string` efforts to `[]SelectedModel`, verify correct models get effort values
+- [x] run tests - must pass before next task
 
 ### Task 6: Verify acceptance criteria
 - [ ] verify: selecting a reasoning model and setting effort generates `"reasoning": {"effort": "..."}` in config
