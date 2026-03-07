@@ -290,6 +290,54 @@ claude-sonnet - [error]
 | 2 | All models failed |
 | 3 | Configuration or input error |
 
+## ralphex Integration
+
+`orx-ralphex-review` is a companion script that integrates orx with [ralphex](https://github.com/iatsiuk/ralphex) as a custom code review backend.
+
+### Requirements
+
+- `orx` on PATH
+- `jq` for JSON parsing
+- `git`
+
+### Installation
+
+Installed automatically alongside `orx` via Homebrew:
+
+```bash
+brew install iatsiuk/tap/orx
+```
+
+Or download from [GitHub Releases](https://github.com/iatsiuk/orx-cli/releases) (included in the archive).
+
+### Configuration
+
+In your ralphex config:
+
+```ini
+external_review_tool = custom
+custom_review_script = orx-ralphex-review
+```
+
+The script uses the default orx config (`~/.config/orx.json`) and `OPENROUTER_API_KEY` from the environment.
+
+### How it works
+
+1. Reads the prompt file passed by ralphex
+2. Extracts the `git diff` command from the prompt
+3. Runs `git diff --no-ext-diff --no-textconv` and passes the output to orx
+4. Formats the JSON response as plain text for ralphex to evaluate
+
+### Output format
+
+```
+=== model-name-1 ===
+- file:line - description of issue
+
+=== model-name-2 ===
+- file:line - description of issue
+```
+
 ## License
 
 MIT

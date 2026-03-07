@@ -77,9 +77,9 @@
 - [x] verify git diff uses --no-ext-diff --no-textconv
 
 ### Task 4: [Final] Update documentation
-- [ ] update README.md with ralphex integration section
-- [ ] document: requires `jq` as dependency
-- [ ] document config example: `custom_review_script = orx-ralphex-review`
+- [x] update README.md with ralphex integration section
+- [x] document: requires `jq` as dependency
+- [x] document config example: `custom_review_script = orx-ralphex-review`
 
 ## Technical Details
 
