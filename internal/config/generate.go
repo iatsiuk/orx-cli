@@ -187,7 +187,10 @@ func formatValue(v any) string {
 	case nil:
 		return "null"
 	default:
-		data, _ := json.Marshal(val)
+		data, err := json.Marshal(val)
+		if err != nil {
+			return "null"
+		}
 		return string(data)
 	}
 }
