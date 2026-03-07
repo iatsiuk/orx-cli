@@ -330,3 +330,92 @@ func TestFilterReasoningSelectedModels_Empty(t *testing.T) {
 		t.Errorf("expected 0 reasoning models, got %d", len(filtered))
 	}
 }
+
+func TestReasoningTui_InitialState(t *testing.T) {
+	t.Parallel()
+
+	models := []config.SelectedModel{
+		{ID: "openai/o3", SupportedParameters: []string{"reasoning"}},
+		{ID: "anthropic/claude-opus", SupportedParameters: []string{"reasoning"}},
+	}
+
+	a := newReasoningTuiApp(models)
+
+	if a.efforts["openai/o3"] != "" {
+		t.Errorf("expected initial effort for openai/o3 to be empty, got %q", a.efforts["openai/o3"])
+	}
+	if a.efforts["anthropic/claude-opus"] != "" {
+		t.Errorf("expected initial effort for anthropic/claude-opus to be empty, got %q", a.efforts["anthropic/claude-opus"])
+	}
+}
+
+func TestReasoningTui_InitialStateWithExisting(t *testing.T) {
+	t.Parallel()
+
+	models := []config.SelectedModel{
+		{
+			ID:                  "openai/o3",
+			SupportedParameters: []string{"reasoning"},
+			ExistingParams: &config.Model{
+				Name:      "O3",
+				Model:     "openai/o3",
+				Reasoning: &config.ReasoningConfig{Effort: "high"},
+			},
+		},
+		{ID: "anthropic/claude-opus", SupportedParameters: []string{"reasoning"}},
+	}
+
+	a := newReasoningTuiApp(models)
+
+	if a.efforts["openai/o3"] != "high" {
+		t.Errorf("expected initial effort for openai/o3 to be 'high', got %q", a.efforts["openai/o3"])
+	}
+	if a.efforts["anthropic/claude-opus"] != "" {
+		t.Errorf("expected initial effort for anthropic/claude-opus to be empty, got %q", a.efforts["anthropic/claude-opus"])
+	}
+}
+
+func TestReasoningTui_CycleEffort(t *testing.T) {
+	t.Parallel()
+
+	models := []config.SelectedModel{
+		{ID: "openai/o3", SupportedParameters: []string{"reasoning"}},
+	}
+
+	a := newReasoningTuiApp(models)
+
+	a.cycleEffort(0)
+	if a.efforts["openai/o3"] != "none" {
+		t.Errorf("expected 'none' after first cycle, got %q", a.efforts["openai/o3"])
+	}
+
+	a.cycleEffort(0)
+	if a.efforts["openai/o3"] != "minimal" {
+		t.Errorf("expected 'minimal' after second cycle, got %q", a.efforts["openai/o3"])
+	}
+}
+
+func TestReasoningTui_GetEfforts(t *testing.T) {
+	t.Parallel()
+
+	models := []config.SelectedModel{
+		{ID: "openai/o3", SupportedParameters: []string{"reasoning"}},
+		{ID: "anthropic/claude-opus", SupportedParameters: []string{"reasoning"}},
+	}
+
+	a := newReasoningTuiApp(models)
+	a.cycleEffort(0) // openai/o3 -> "none"
+	// anthropic/claude-opus remains ""
+
+	efforts := a.getEfforts()
+
+	if len(efforts) != 1 {
+		t.Fatalf("expected 1 effort in result, got %d", len(efforts))
+	}
+	if efforts["openai/o3"] != "none" {
+		t.Errorf("expected openai/o3 effort = 'none', got %q", efforts["openai/o3"])
+	}
+	if _, ok := efforts["anthropic/claude-opus"]; ok {
+		t.Error("expected anthropic/claude-opus to be excluded (empty effort)")
+	}
+}

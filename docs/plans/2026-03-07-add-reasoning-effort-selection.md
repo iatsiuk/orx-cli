@@ -89,19 +89,19 @@ Currently `mergeDisabledModels()` creates new `SelectedModel{ID, Name, Enabled}`
 - [x] run tests - must pass before next task
 
 ### Task 4: Build reasoning effort TUI screen
-- [ ] write test in `internal/modelsel/modelsel_test.go`: `TestReasoningTui_InitialState` - models without existing effort start with `""` (skip)
-- [ ] write test: `TestReasoningTui_InitialStateWithExisting` - models with `ExistingParams.Reasoning.Effort` start with that value pre-loaded
-- [ ] write test: `TestReasoningTui_CycleEffort` - calling `cycleEffort()` on current item changes effort value
-- [ ] write test: `TestReasoningTui_GetEfforts` - returns `map[string]string` of model ID to effort, excludes empty (skipped) entries
-- [ ] run tests - expect failures
-- [ ] create `reasoningTuiApp` struct in `internal/modelsel/reasoning.go` with fields: `app *tview.Application`, `models []config.SelectedModel`, `efforts map[string]string`, `confirmed bool`
-- [ ] implement `newReasoningTuiApp(models []config.SelectedModel) *reasoningTuiApp` - builds TUI with model list showing effort per model; pre-load effort from `model.ExistingParams.Reasoning.Effort` if available
-- [ ] implement layout: single list with model IDs and current effort label, status bar with controls; follow `buildComponents()`/`buildLayout()`/`setupInputHandlers()` pattern from `ui.go`
-- [ ] implement Space key: cycle effort for current model via `nextEffort()`; extract input handler into separate method to stay within cyclop complexity limit
-- [ ] implement Enter key: confirm and stop app
-- [ ] implement Esc key: cancel (set confirmed=false, stop) - skips reasoning setup, does not cancel entire init
-- [ ] implement `getEfforts() map[string]string` - returns non-empty efforts
-- [ ] run tests - must pass before next task
+- [x] write test in `internal/modelsel/modelsel_test.go`: `TestReasoningTui_InitialState` - models without existing effort start with `""` (skip)
+- [x] write test: `TestReasoningTui_InitialStateWithExisting` - models with `ExistingParams.Reasoning.Effort` start with that value pre-loaded
+- [x] write test: `TestReasoningTui_CycleEffort` - calling `cycleEffort()` on current item changes effort value
+- [x] write test: `TestReasoningTui_GetEfforts` - returns `map[string]string` of model ID to effort, excludes empty (skipped) entries
+- [x] run tests - expect failures
+- [x] create `reasoningTuiApp` struct in `internal/modelsel/reasoning.go` with fields: `app *tview.Application`, `models []config.SelectedModel`, `efforts map[string]string`, `confirmed bool`
+- [x] implement `newReasoningTuiApp(models []config.SelectedModel) *reasoningTuiApp` - builds TUI with model list showing effort per model; pre-load effort from `model.ExistingParams.Reasoning.Effort` if available
+- [x] implement layout: single list with model IDs and current effort label, status bar with controls; follow `buildComponents()`/`buildLayout()`/`setupInputHandlers()` pattern from `ui.go`
+- [x] implement Space key: cycle effort for current model via `nextEffort()`; extract input handler into separate method to stay within cyclop complexity limit
+- [x] implement Enter key: confirm and stop app
+- [x] implement Esc key: cancel (set confirmed=false, stop) - skips reasoning setup, does not cancel entire init
+- [x] implement `getEfforts() map[string]string` - returns non-empty efforts
+- [x] run tests - must pass before next task
 
 ### Task 5: Integrate reasoning screen into modelsel.Run()
 - [ ] update `modelsel.go` `Run()`: after model selection TUI, call `filterReasoningSelectedModels()` on selected models
