@@ -224,8 +224,7 @@ func readPromptFromFile(path string) (string, error) {
 
 func readPromptFromReader(r io.Reader) (string, error) {
 	if f, ok := r.(*os.File); ok {
-		stat, _ := f.Stat()
-		if (stat.Mode() & os.ModeCharDevice) != 0 {
+		if stat, err := f.Stat(); err == nil && (stat.Mode()&os.ModeCharDevice) != 0 {
 			return "", fmt.Errorf("no input: use --prompt-file or pipe data to stdin")
 		}
 	}

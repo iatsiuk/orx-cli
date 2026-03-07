@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -147,9 +148,14 @@ func writeModel(sb *strings.Builder, gm generatedModel, isLast bool) {
 	fmt.Fprintf(sb, "      \"model\": %q,\n", gm.Model)
 	fmt.Fprintf(sb, "      \"enabled\": %t", gm.Enabled)
 
-	for k, v := range gm.ActiveParams {
+	keys := make([]string, 0, len(gm.ActiveParams))
+	for k := range gm.ActiveParams {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
 		sb.WriteString(",\n")
-		fmt.Fprintf(sb, "      %q: %s", k, formatValue(v))
+		fmt.Fprintf(sb, "      %q: %s", k, formatValue(gm.ActiveParams[k]))
 	}
 
 	sb.WriteString("\n")
