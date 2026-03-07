@@ -205,4 +205,5 @@ type SelectedModel struct {
 	SupportedParameters []string
 	DefaultParameters   map[string]any
 	ExistingParams      *Model
+	ReasoningEffort     string
 }

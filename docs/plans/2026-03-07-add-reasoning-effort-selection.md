@@ -67,15 +67,15 @@ Currently `mergeDisabledModels()` creates new `SelectedModel{ID, Name, Enabled}`
 - [x] run tests - must pass before next task
 
 ### Task 2: Add ReasoningEffort field to SelectedModel
-- [ ] write test in `internal/config/generate_test.go`: `TestGenerateFromModels_WithReasoningEffort` - model with `ReasoningEffort: "high"` generates `"reasoning": {"effort": "high"}` in output; validate by parsing output as JSON5 and checking `cfg.Models[0].Reasoning.Effort == "high"`
-- [ ] write test: model with `ReasoningEffort: "none"` generates active reasoning config (distinct from skip)
-- [ ] write test: model with empty `ReasoningEffort` keeps `reasoning` in `// available:` comment (existing behavior preserved)
-- [ ] write test: model with `ReasoningEffort` should NOT have `reasoning` in `// available:` comment
-- [ ] write test: model that does NOT support `"reasoning"` in `SupportedParameters` but has `ReasoningEffort` set - reasoning should be ignored
-- [ ] run tests - expect failures (field doesn't exist yet)
-- [ ] add `ReasoningEffort string` field to `SelectedModel` in `internal/config/config.go`
-- [ ] update `buildModel()` in `internal/config/generate.go`: when iterating `SupportedParameters`, if param is `"reasoning"` and `m.ReasoningEffort != ""`, add to `ActiveParams` as `config.ReasoningConfig{Effort: m.ReasoningEffort}` and `continue` to skip adding to `AvailableKeys`
-- [ ] run tests - must pass before next task
+- [x] write test in `internal/config/generate_test.go`: `TestGenerateFromModels_WithReasoningEffort` - model with `ReasoningEffort: "high"` generates `"reasoning": {"effort": "high"}` in output; validate by parsing output as JSON5 and checking `cfg.Models[0].Reasoning.Effort == "high"`
+- [x] write test: model with `ReasoningEffort: "none"` generates active reasoning config (distinct from skip)
+- [x] write test: model with empty `ReasoningEffort` keeps `reasoning` in `// available:` comment (existing behavior preserved)
+- [x] write test: model with `ReasoningEffort` should NOT have `reasoning` in `// available:` comment
+- [x] write test: model that does NOT support `"reasoning"` in `SupportedParameters` but has `ReasoningEffort` set - reasoning should be ignored
+- [x] run tests - expect failures (field doesn't exist yet)
+- [x] add `ReasoningEffort string` field to `SelectedModel` in `internal/config/config.go`
+- [x] update `buildModel()` in `internal/config/generate.go`: when iterating `SupportedParameters`, if param is `"reasoning"` and `m.ReasoningEffort != ""`, add to `ActiveParams` as `config.ReasoningConfig{Effort: m.ReasoningEffort}` and `continue` to skip adding to `AvailableKeys`
+- [x] run tests - must pass before next task
 
 ### Task 3: Add reasoning effort cycling logic (pure functions)
 - [ ] write test in `internal/modelsel/modelsel_test.go`: `TestNextEffort` - table-driven, cycles through `"" -> "none" -> "minimal" -> "low" -> "medium" -> "high" -> "xhigh" -> ""`

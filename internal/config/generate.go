@@ -56,15 +56,23 @@ func buildModel(m *SelectedModel) generatedModel {
 		}
 	}
 
+	applyDefaultParams(&gm, m)
+
+	return gm
+}
+
+func applyDefaultParams(gm *generatedModel, m *SelectedModel) {
 	for _, param := range m.SupportedParameters {
+		if param == "reasoning" && m.ReasoningEffort != "" {
+			gm.ActiveParams["reasoning"] = &ReasoningConfig{Effort: m.ReasoningEffort}
+			continue
+		}
 		if val, ok := m.DefaultParameters[param]; ok && val != nil {
 			gm.ActiveParams[param] = val
 		} else if _, active := gm.ActiveParams[param]; !active {
 			gm.AvailableKeys = append(gm.AvailableKeys, param)
 		}
 	}
-
-	return gm
 }
 
 func modelToParamsMap(m *Model) map[string]any {

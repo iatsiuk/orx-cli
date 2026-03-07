@@ -319,6 +319,112 @@ func TestGenerateFromModels_ExistingParamsLowerPriorityThanDefaults(t *testing.T
 	}
 }
 
+func TestGenerateFromModels_WithReasoningEffort(t *testing.T) {
+	t.Parallel()
+
+	for _, effort := range []string{"high", "none", "minimal", "low", "medium", "xhigh"} {
+		t.Run(effort, func(t *testing.T) {
+			t.Parallel()
+
+			m := SelectedModel{
+				ID:                  "test/reasoning-model",
+				Name:                "Reasoning Model",
+				Enabled:             true,
+				SupportedParameters: []string{"reasoning", "max_tokens"},
+				DefaultParameters:   map[string]any{},
+				ReasoningEffort:     effort,
+			}
+
+			result := GenerateFromModels([]SelectedModel{m})
+
+			if !containsAsJSONKey(result, "reasoning") {
+				t.Fatalf("expected reasoning as active JSON key in output:\n%s", result)
+			}
+
+			var cfg Config
+			if err := json5.Unmarshal([]byte(stripComments(result)), &cfg); err != nil {
+				t.Fatalf("output is not valid JSON5: %v\n%s", err, result)
+			}
+			if err := cfg.Validate(); err != nil {
+				t.Fatalf("config validation failed: %v", err)
+			}
+			if len(cfg.Models) != 1 {
+				t.Fatalf("expected 1 model, got %d", len(cfg.Models))
+			}
+			if cfg.Models[0].Reasoning == nil {
+				t.Fatal("expected reasoning config, got nil")
+			}
+			if cfg.Models[0].Reasoning.Effort != effort {
+				t.Errorf("expected effort %q, got %q", effort, cfg.Models[0].Reasoning.Effort)
+			}
+		})
+	}
+}
+
+func TestGenerateFromModels_EmptyReasoningEffortKeepsInAvailable(t *testing.T) {
+	t.Parallel()
+
+	m := SelectedModel{
+		ID:                  "test/reasoning-model",
+		Name:                "Reasoning Model",
+		Enabled:             true,
+		SupportedParameters: []string{"reasoning", "max_tokens"},
+		DefaultParameters:   map[string]any{},
+		ReasoningEffort:     "",
+	}
+
+	result := GenerateFromModels([]SelectedModel{m})
+
+	if containsAsJSONKey(result, "reasoning") {
+		t.Errorf("reasoning should not be active JSON key when ReasoningEffort is empty:\n%s", result)
+	}
+	if !strings.Contains(result, "// available:") || !strings.Contains(result, "reasoning") {
+		t.Errorf("expected reasoning in available comment:\n%s", result)
+	}
+}
+
+func TestGenerateFromModels_ReasoningEffortNotInAvailable(t *testing.T) {
+	t.Parallel()
+
+	m := SelectedModel{
+		ID:                  "test/reasoning-model",
+		Name:                "Reasoning Model",
+		Enabled:             true,
+		SupportedParameters: []string{"reasoning", "max_tokens"},
+		DefaultParameters:   map[string]any{},
+		ReasoningEffort:     "medium",
+	}
+
+	result := GenerateFromModels([]SelectedModel{m})
+
+	// reasoning should NOT appear in the available comment
+	for _, line := range strings.Split(result, "\n") {
+		if strings.Contains(line, "// available:") && strings.Contains(line, "reasoning") {
+			t.Errorf("reasoning should not appear in available comment when ReasoningEffort is set:\n%s", result)
+		}
+	}
+}
+
+func TestGenerateFromModels_ReasoningEffortIgnoredWhenNotSupported(t *testing.T) {
+	t.Parallel()
+
+	m := SelectedModel{
+		ID:                  "test/model",
+		Name:                "Non-Reasoning Model",
+		Enabled:             true,
+		SupportedParameters: []string{"temperature", "max_tokens"},
+		DefaultParameters:   map[string]any{"temperature": float64(0.7)},
+		ReasoningEffort:     "high",
+	}
+
+	result := GenerateFromModels([]SelectedModel{m})
+
+	// reasoning should not appear in output at all
+	if strings.Contains(result, "reasoning") {
+		t.Errorf("reasoning should not appear when not in SupportedParameters:\n%s", result)
+	}
+}
+
 func TestWriteConfig(t *testing.T) {
 	t.Parallel()
 
