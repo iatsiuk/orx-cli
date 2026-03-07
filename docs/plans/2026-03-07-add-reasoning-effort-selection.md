@@ -78,15 +78,15 @@ Currently `mergeDisabledModels()` creates new `SelectedModel{ID, Name, Enabled}`
 - [x] run tests - must pass before next task
 
 ### Task 3: Add reasoning effort cycling logic (pure functions)
-- [ ] write test in `internal/modelsel/modelsel_test.go`: `TestNextEffort` - table-driven, cycles through `"" -> "none" -> "minimal" -> "low" -> "medium" -> "high" -> "xhigh" -> ""`
-- [ ] write test: `TestSupportsReasoning` - returns true when `SupportedParameters` contains `"reasoning"`, false otherwise
-- [ ] write test: `TestFilterReasoningSelectedModels` - filters `[]config.SelectedModel` to only those with `"reasoning"` in `SupportedParameters`
-- [ ] write test: empty `SupportedParameters` returns empty list
-- [ ] run tests - expect failures
-- [ ] implement `nextEffort(current string) string` in `internal/modelsel/reasoning.go`
-- [ ] implement `supportsReasoning(params []string) bool` in `internal/modelsel/reasoning.go`
-- [ ] implement `filterReasoningSelectedModels(models []config.SelectedModel) []config.SelectedModel` in `internal/modelsel/reasoning.go`
-- [ ] run tests - must pass before next task
+- [x] write test in `internal/modelsel/modelsel_test.go`: `TestNextEffort` - table-driven, cycles through `"" -> "none" -> "minimal" -> "low" -> "medium" -> "high" -> "xhigh" -> ""`
+- [x] write test: `TestSupportsReasoning` - returns true when `SupportedParameters` contains `"reasoning"`, false otherwise
+- [x] write test: `TestFilterReasoningSelectedModels` - filters `[]config.SelectedModel` to only those with `"reasoning"` in `SupportedParameters`
+- [x] write test: empty `SupportedParameters` returns empty list
+- [x] run tests - expect failures
+- [x] implement `nextEffort(current string) string` in `internal/modelsel/reasoning.go`
+- [x] implement `supportsReasoning(params []string) bool` in `internal/modelsel/reasoning.go`
+- [x] implement `filterReasoningSelectedModels(models []config.SelectedModel) []config.SelectedModel` in `internal/modelsel/reasoning.go`
+- [x] run tests - must pass before next task
 
 ### Task 4: Build reasoning effort TUI screen
 - [ ] write test in `internal/modelsel/modelsel_test.go`: `TestReasoningTui_InitialState` - models without existing effort start with `""` (skip)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"orx/internal/config"
 	"orx/internal/testutil"
 )
 
@@ -244,5 +245,88 @@ func TestPreSelectModels_NonExistent(t *testing.T) {
 	}
 	if len(app.selected) != 1 {
 		t.Errorf("expected 1 selected model, got %d", len(app.selected))
+	}
+}
+
+func TestNextEffort(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		current string
+		want    string
+	}{
+		{"", "none"},
+		{"none", "minimal"},
+		{"minimal", "low"},
+		{"low", "medium"},
+		{"medium", "high"},
+		{"high", "xhigh"},
+		{"xhigh", ""},
+	}
+
+	for _, tt := range tests {
+		got := nextEffort(tt.current)
+		if got != tt.want {
+			t.Errorf("nextEffort(%q) = %q, want %q", tt.current, got, tt.want)
+		}
+	}
+}
+
+func TestSupportsReasoning(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		params []string
+		want   bool
+	}{
+		{[]string{"reasoning", "temperature"}, true},
+		{[]string{"temperature", "top_p"}, false},
+		{[]string{"reasoning"}, true},
+		{[]string{}, false},
+		{nil, false},
+	}
+
+	for _, tt := range tests {
+		got := supportsReasoning(tt.params)
+		if got != tt.want {
+			t.Errorf("supportsReasoning(%v) = %v, want %v", tt.params, got, tt.want)
+		}
+	}
+}
+
+func TestFilterReasoningSelectedModels(t *testing.T) {
+	t.Parallel()
+
+	models := []config.SelectedModel{
+		{ID: "openai/o3", SupportedParameters: []string{"reasoning", "temperature"}},
+		{ID: "openai/gpt-4o", SupportedParameters: []string{"temperature", "top_p"}},
+		{ID: "anthropic/claude-opus", SupportedParameters: []string{"reasoning"}},
+		{ID: "google/gemini", SupportedParameters: []string{"temperature"}},
+	}
+
+	filtered := filterReasoningSelectedModels(models)
+
+	if len(filtered) != 2 {
+		t.Fatalf("expected 2 reasoning models, got %d", len(filtered))
+	}
+	if filtered[0].ID != "openai/o3" {
+		t.Errorf("expected filtered[0] = openai/o3, got %s", filtered[0].ID)
+	}
+	if filtered[1].ID != "anthropic/claude-opus" {
+		t.Errorf("expected filtered[1] = anthropic/claude-opus, got %s", filtered[1].ID)
+	}
+}
+
+func TestFilterReasoningSelectedModels_Empty(t *testing.T) {
+	t.Parallel()
+
+	models := []config.SelectedModel{
+		{ID: "openai/gpt-4o", SupportedParameters: []string{"temperature"}},
+	}
+
+	filtered := filterReasoningSelectedModels(models)
+
+	if len(filtered) != 0 {
+		t.Errorf("expected 0 reasoning models, got %d", len(filtered))
 	}
 }
