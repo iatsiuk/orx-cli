@@ -60,11 +60,11 @@
 - [x] run script manually against a test prompt file
 
 ### Task 2: Update build configuration
-- [ ] add `extra_files` in `.goreleaser.yaml` archives section to include the script
-- [ ] add second `binary` stanza in `homebrew_casks` for `orx-ralphex-review`
-- [ ] validate with `goreleaser release --snapshot --clean`
-- [ ] inspect produced archive -- must contain both `orx` and `orx-ralphex-review`
-- [ ] inspect generated cask -- must install both executables
+- [x] add `extra_files` in `.goreleaser.yaml` archives section to include the script
+- [x] add second `binary` stanza in `homebrew_casks` for `orx-ralphex-review`
+- [x] validate with `goreleaser release --snapshot --clean`
+- [x] inspect produced archive -- must contain both `orx` and `orx-ralphex-review`
+- [x] inspect generated cask -- must install both executables
 
 ### Task 3: Verify acceptance criteria
 - [ ] verify ralphex compatibility: script accepts exactly 1 positional arg

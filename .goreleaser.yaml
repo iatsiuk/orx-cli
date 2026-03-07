@@ -17,6 +17,9 @@ builds:
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: scripts/orx-ralphex-review
+        dst: orx-ralphex-review
 
 checksum:
   name_template: "checksums.txt"
@@ -29,6 +32,9 @@ homebrew_casks:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/iatsiuk/orx-cli"
     description: "CLI tool for querying multiple LLMs in parallel via OpenRouter"
+    binaries:
+      - orx
+      - orx-ralphex-review
 
 changelog:
   sort: asc
