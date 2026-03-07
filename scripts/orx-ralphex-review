@@ -50,7 +50,10 @@ trap 'rm -f "$DIFF_TMPFILE" "$JSON_TMPFILE" "$ERR_TMPFILE" || true' EXIT INT TER
 # reject flags that bypass security controls or write diff to an arbitrary path
 for _arg in "${DIFF_ARGS[@]:2}"; do
     case "$_arg" in
-        --output=*|--output|--ext-diff)
+        --)
+            break
+            ;;
+        --output=*|--output|--ext-diff|--textconv)
             echo "error: unsafe flag in diff command: $_arg" >&2
             exit 2
             ;;

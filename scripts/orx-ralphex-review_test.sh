@@ -126,6 +126,22 @@ git diff --ext-diff HEAD~1 HEAD
 Review carefully.
 EOF
 
+PROMPT_TEXTCONV_FLAG="$WORK/prompt_textconv_flag.txt"
+cat > "$PROMPT_TEXTCONV_FLAG" <<'EOF'
+Run this command to see the changes:
+git diff --textconv HEAD~1 HEAD
+
+Review carefully.
+EOF
+
+PROMPT_FLAG_AFTER_SEPARATOR="$WORK/prompt_flag_after_separator.txt"
+cat > "$PROMPT_FLAG_AFTER_SEPARATOR" <<'EOF'
+Run this command to see the changes:
+git diff HEAD~1 HEAD -- --ext-diff
+
+Review carefully.
+EOF
+
 # --- TEST 1: no arguments -> exit 1 ---
 actual=0
 PATH="$MOCKS:$PATH" "$SCRIPT" 2>/dev/null || actual=$?
@@ -185,6 +201,19 @@ actual=0
 PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_EXT_DIFF_FLAG" 2>/dev/null || actual=$?
 if [[ "$actual" -eq 2 ]]; then ok "--ext-diff flag -> exit 2"
 else nok "--ext-diff flag -> exit 2 (got $actual)"; fi
+
+# --- TEST 7c: --textconv flag in diff command -> exit 2 ---
+actual=0
+PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_TEXTCONV_FLAG" 2>/dev/null || actual=$?
+if [[ "$actual" -eq 2 ]]; then ok "--textconv flag -> exit 2"
+else nok "--textconv flag -> exit 2 (got $actual)"; fi
+
+# --- TEST 7d: unsafe flag after -- separator -> allowed (pathspec) ---
+rm -f "$GIT_CALLS"
+actual=0
+PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_FLAG_AFTER_SEPARATOR" 2>/dev/null || actual=$?
+if [[ "$actual" -ne 2 ]]; then ok "flag after -- separator -> allowed"
+else nok "flag after -- separator -> allowed (got exit 2)"; fi
 
 # --- TEST 8: diff extraction - git called with extracted args ---
 rm -f "$GIT_CALLS"
