@@ -4,7 +4,7 @@
 # run from any directory: bash scripts/orx-ralphex-review_test.sh
 #
 
-set -uo pipefail
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT="$SCRIPT_DIR/orx-ralphex-review"
@@ -50,6 +50,13 @@ echo "all models failed" >&2
 exit 2
 MOCK
 chmod +x "$WORK/orx_total_fail"
+
+# --- mock: git that fails on diff ---
+cat > "$WORK/git_fail" <<'MOCK'
+#!/bin/bash
+exit 1
+MOCK
+chmod +x "$WORK/git_fail"
 
 # --- mock: git (records calls, produces empty diff) ---
 GIT_CALLS="$WORK/git_calls.txt"
@@ -130,10 +137,10 @@ if [[ -n "$JQ_PATH" ]]; then
     err_output=""
     actual=0
     err_output=$(PATH="$PATH_NO_JQ" "$SCRIPT" "$PROMPT_WITH_MARKER" 2>&1) || actual=$?
-    if echo "$err_output" | grep -q "jq is required"; then
+    if [[ "$actual" -eq 1 ]] && echo "$err_output" | grep -q "jq is required"; then
         ok "missing jq -> clear error"
     else
-        nok "missing jq -> clear error (output: $err_output)"
+        nok "missing jq -> clear error (exit=$actual, output: $err_output)"
     fi
 else
     echo "SKIP: jq not installed, skipping missing-jq test"
@@ -204,7 +211,7 @@ output=""
 actual=0
 output=$(PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_WITH_MARKER" 2>/dev/null) || actual=$?
 cp "$WORK/orx_good_backup" "$MOCKS/orx"
-if [[ "$actual" -eq 0 ]] && echo "$output" | grep -q "=== gpt-4o ==="; then
+if [[ "$actual" -eq 0 ]] && echo "$output" | grep -q "=== gpt-4o ===" && echo "$output" | grep -q "=== claude-3 \[ERROR\] ==="; then
     ok "orx partial failure -> formatted output produced"
 else
     nok "orx partial failure -> formatted output produced (exit=$actual, output=$output)"
@@ -247,6 +254,18 @@ if [[ "$actual" -eq 4 ]]; then
     ok "orx total failure -> exit 4"
 else
     nok "orx total failure -> exit 4 (got $actual)"
+fi
+
+# --- TEST 16: git diff failure -> exit 3 ---
+cp "$MOCKS/git" "$WORK/git_good_backup"
+cp "$WORK/git_fail" "$MOCKS/git"
+actual=0
+PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_WITH_MARKER" 2>/dev/null || actual=$?
+cp "$WORK/git_good_backup" "$MOCKS/git"
+if [[ "$actual" -eq 3 ]]; then
+    ok "git diff failure -> exit 3"
+else
+    nok "git diff failure -> exit 3 (got $actual)"
 fi
 
 # --- summary ---

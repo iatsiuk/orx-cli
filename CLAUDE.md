@@ -143,6 +143,21 @@ Disabled models: only ExistingParams emitted (no API defaults, no TUI input).
 When user skips reasoning TUI (Esc), "reasoning" goes to `// available:` comment regardless
 of ExistingParams.
 
+## Architecture Notes (Shell Scripts)
+
+### scripts/ directory
+
+Shell scripts shipped alongside the `orx` binary via goreleaser. Each script is a standalone
+executable with no `.sh` extension (installed as binary name). Packaged via `.goreleaser.yaml`
+`archives.files` and listed in `homebrew_casks.binaries`.
+
+### Shell script testing pattern
+
+Tests use bash assertion scripts (`<name>_test.sh` in same directory as the script).
+Run: `bash scripts/<name>_test.sh` from repo root.
+Structure: mock binaries injected via `PATH="$MOCKS:$PATH"`, assert exit codes and stdout content.
+No Go tests for shell scripts.
+
 ## Working with todo.md
 
 - Mark completed items with `[x]`: `- [x] Completed task`

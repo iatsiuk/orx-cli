@@ -299,6 +299,7 @@ claude-sonnet - [error]
 - `orx` on PATH
 - `jq` for JSON parsing
 - `git`
+- `awk` (POSIX standard, available on all Unix-like systems)
 
 ### Installation
 
