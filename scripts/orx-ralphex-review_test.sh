@@ -110,6 +110,14 @@ git
 Review carefully.
 EOF
 
+PROMPT_OUTPUT_FLAG="$WORK/prompt_output_flag.txt"
+cat > "$PROMPT_OUTPUT_FLAG" <<'EOF'
+Run this command to see the changes:
+git diff --output=/tmp/evil HEAD~1 HEAD
+
+Review carefully.
+EOF
+
 # --- TEST 1: no arguments -> exit 1 ---
 actual=0
 PATH="$MOCKS:$PATH" "$SCRIPT" 2>/dev/null || actual=$?
@@ -158,7 +166,13 @@ PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_SHORT_CMD" 2>/dev/null || actual=$?
 if [[ "$actual" -eq 2 ]]; then ok "short cmd (git only) -> exit 2"
 else nok "short cmd (git only) -> exit 2 (got $actual)"; fi
 
-# --- TEST 7: diff extraction - git called with extracted args ---
+# --- TEST 7: --output= flag in diff command -> exit 2 ---
+actual=0
+PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_OUTPUT_FLAG" 2>/dev/null || actual=$?
+if [[ "$actual" -eq 2 ]]; then ok "--output= flag -> exit 2"
+else nok "--output= flag -> exit 2 (got $actual)"; fi
+
+# --- TEST 8: diff extraction - git called with extracted args ---
 rm -f "$GIT_CALLS"
 actual=0
 PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_WITH_MARKER" 2>/dev/null || actual=$?
@@ -169,14 +183,14 @@ else
     nok "diff extraction -> git called with prompt args (calls: $(cat "$GIT_CALLS" 2>/dev/null || echo 'none'))"
 fi
 
-# --- TEST 8: --no-ext-diff --no-textconv in git call ---
+# --- TEST 9: --no-ext-diff --no-textconv in git call ---
 if [[ -f "$GIT_CALLS" ]] && grep -q "\-\-no-ext-diff" "$GIT_CALLS" && grep -q "\-\-no-textconv" "$GIT_CALLS"; then
     ok "git diff uses --no-ext-diff --no-textconv"
 else
     nok "git diff uses --no-ext-diff --no-textconv (calls: $(cat "$GIT_CALLS" 2>/dev/null || echo 'none'))"
 fi
 
-# --- TEST 9: no marker in prompt -> falls back to 'git diff' ---
+# --- TEST 10: no marker in prompt -> falls back to 'git diff' ---
 rm -f "$GIT_CALLS"
 actual=0
 PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_NO_MARKER" 2>/dev/null || actual=$?
@@ -193,7 +207,7 @@ else
     nok "no marker -> falls back to git diff (git not called)"
 fi
 
-# --- TEST 10: orx stderr NOT in stdout ---
+# --- TEST 11: orx stderr NOT in stdout ---
 # use mock orx that writes to stderr; capture script stdout only
 stdout_output=""
 stdout_output=$(PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_WITH_MARKER" 2>/dev/null) || true
@@ -203,7 +217,7 @@ else
     ok "orx stderr suppressed from stdout"
 fi
 
-# --- TEST 11: orx partial failure (exit 1) -> still produces formatted output ---
+# --- TEST 12: orx partial failure (exit 1) -> still produces formatted output ---
 # swap orx mock for partial-fail version
 cp "$MOCKS/orx" "$WORK/orx_good_backup"
 cp "$WORK/orx_partial" "$MOCKS/orx"
@@ -217,7 +231,7 @@ else
     nok "orx partial failure -> formatted output produced (exit=$actual, output=$output)"
 fi
 
-# --- TEST 12: output format is plain text, not JSON ---
+# --- TEST 13: output format is plain text, not JSON ---
 output=""
 output=$(PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_WITH_MARKER" 2>/dev/null) || true
 if echo "$output" | grep -q "^=== " && ! echo "$output" | grep -q '"results"'; then
@@ -226,14 +240,14 @@ else
     nok "output format is plain text (not JSON) (output=$output)"
 fi
 
-# --- TEST 13: output includes model name headers ---
+# --- TEST 14: output includes model name headers ---
 if echo "$output" | grep -q "=== gpt-4o ===" && echo "$output" | grep -q "=== claude-3 ==="; then
     ok "output contains model name headers"
 else
     nok "output contains model name headers (output=$output)"
 fi
 
-# --- TEST 14: empty diff case (no marker) works without error ---
+# --- TEST 15: empty diff case (no marker) works without error ---
 # already covered by test 9, but verify exit 0
 rm -f "$GIT_CALLS"
 actual=0
@@ -244,7 +258,7 @@ else
     nok "empty diff (no marker) -> exit 0 (got $actual)"
 fi
 
-# --- TEST 15: orx total failure (exit 2) -> exit 4 ---
+# --- TEST 16: orx total failure (exit 2) -> exit 4 ---
 cp "$MOCKS/orx" "$WORK/orx_good_backup"
 cp "$WORK/orx_total_fail" "$MOCKS/orx"
 actual=0
@@ -256,7 +270,7 @@ else
     nok "orx total failure -> exit 4 (got $actual)"
 fi
 
-# --- TEST 16: git diff failure -> exit 3 ---
+# --- TEST 17: git diff failure -> exit 3 ---
 cp "$MOCKS/git" "$WORK/git_good_backup"
 cp "$WORK/git_fail" "$MOCKS/git"
 actual=0

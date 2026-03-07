@@ -47,6 +47,16 @@ JSON_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-json.XXXXXX")
 ERR_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-err.XXXXXX")
 trap 'rm -f "$DIFF_TMPFILE" "$JSON_TMPFILE" "$ERR_TMPFILE" || true' EXIT INT TERM HUP
 
+# reject --output= which would write diff to an arbitrary path instead of stdout
+for _arg in "${DIFF_ARGS[@]:2}"; do
+    case "$_arg" in
+        --output=*|--output)
+            echo "error: unsafe flag in diff command: $_arg" >&2
+            exit 2
+            ;;
+    esac
+done
+
 # --no-ext-diff --no-textconv: prevent .gitattributes from invoking external commands
 if ! git -c color.ui=false diff --no-ext-diff --no-textconv "${DIFF_ARGS[@]:2}" > "$DIFF_TMPFILE"; then
     echo "error: git diff failed" >&2
