@@ -67,14 +67,14 @@
 - [x] inspect generated cask -- must install both executables
 
 ### Task 3: Verify acceptance criteria
-- [ ] verify ralphex compatibility: script accepts exactly 1 positional arg
-- [ ] verify diff extraction: parses prompt, executes git diff, passes as context
-- [ ] verify output format: plain text, no JSON, no signal
-- [ ] verify orx stderr suppressed (no progress in output)
-- [ ] verify empty diff case works (PREVIOUS REVIEW CONTEXT)
-- [ ] verify missing jq produces clear error message
-- [ ] verify orx partial failure (exit 1) still produces formatted output
-- [ ] verify git diff uses --no-ext-diff --no-textconv
+- [x] verify ralphex compatibility: script accepts exactly 1 positional arg
+- [x] verify diff extraction: parses prompt, executes git diff, passes as context
+- [x] verify output format: plain text, no JSON, no signal
+- [x] verify orx stderr suppressed (no progress in output)
+- [x] verify empty diff case works (PREVIOUS REVIEW CONTEXT)
+- [x] verify missing jq produces clear error message
+- [x] verify orx partial failure (exit 1) still produces formatted output
+- [x] verify git diff uses --no-ext-diff --no-textconv
 
 ### Task 4: [Final] Update documentation
 - [ ] update README.md with ralphex integration section
