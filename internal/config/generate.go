@@ -63,8 +63,14 @@ func buildModel(m *SelectedModel) generatedModel {
 
 func applyDefaultParams(gm *generatedModel, m *SelectedModel) {
 	for _, param := range m.SupportedParameters {
-		if param == "reasoning" && m.ReasoningEffort != "" {
-			gm.ActiveParams["reasoning"] = &ReasoningConfig{Effort: m.ReasoningEffort}
+		if param == "reasoning" {
+			if m.ReasoningEffort != "" {
+				gm.ActiveParams["reasoning"] = &ReasoningConfig{Effort: m.ReasoningEffort}
+			} else {
+				// user did not select effort in TUI: remove any baseline from ExistingParams
+				delete(gm.ActiveParams, "reasoning")
+				gm.AvailableKeys = append(gm.AvailableKeys, "reasoning")
+			}
 			continue
 		}
 		if val, ok := m.DefaultParameters[param]; ok && val != nil {

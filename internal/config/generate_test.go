@@ -383,6 +383,34 @@ func TestGenerateFromModels_EmptyReasoningEffortKeepsInAvailable(t *testing.T) {
 	}
 }
 
+func TestGenerateFromModels_ExistingReasoningNotPreservedWhenEffortEmpty(t *testing.T) {
+	t.Parallel()
+
+	m := SelectedModel{
+		ID:                  "test/reasoning-model",
+		Name:                "Reasoning Model",
+		Enabled:             true,
+		SupportedParameters: []string{"reasoning", "max_tokens"},
+		DefaultParameters:   map[string]any{},
+		ReasoningEffort:     "",
+		ExistingParams: &Model{
+			Name:      "Reasoning Model",
+			Model:     "test/reasoning-model",
+			Reasoning: &ReasoningConfig{Effort: "high"},
+		},
+	}
+
+	result := GenerateFromModels([]SelectedModel{m})
+
+	// existing reasoning must NOT be preserved as active param when user skipped TUI
+	if containsAsJSONKey(result, "reasoning") {
+		t.Errorf("reasoning should not be active when ReasoningEffort is empty, even with ExistingParams:\n%s", result)
+	}
+	if !strings.Contains(result, "// available:") || !strings.Contains(result, "reasoning") {
+		t.Errorf("expected reasoning in available comment:\n%s", result)
+	}
+}
+
 func TestGenerateFromModels_ReasoningEffortNotInAvailable(t *testing.T) {
 	t.Parallel()
 

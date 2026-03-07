@@ -13,10 +13,11 @@ import (
 var ErrNoTextModels = errors.New("no text models available")
 
 type Options struct {
-	Verbose     bool
-	VerboseW    io.Writer
-	BaseURL     string
-	PreSelected []string
+	Verbose        bool
+	VerboseW       io.Writer
+	BaseURL        string
+	PreSelected    []string
+	ExistingModels []config.Model
 }
 
 // Run displays TUI for model selection. Returns nil if user cancelled.
@@ -54,17 +55,41 @@ func Run(ctx context.Context, token string, opts *Options) ([]config.SelectedMod
 	}
 
 	selected := app.getSelectedModels()
+	attachExistingParams(selected, opts.ExistingModels)
 
 	reasoningModels := filterReasoningSelectedModels(selected)
 	if len(reasoningModels) > 0 {
-		rApp := newReasoningTuiApp(reasoningModels)
-		if err := rApp.run(); err != nil {
-			return nil, fmt.Errorf("run reasoning TUI: %w", err)
-		}
-		if rApp.confirmed {
-			selected = applyEfforts(selected, rApp.getEfforts())
+		selected, err = runReasoningTUI(selected, reasoningModels)
+		if err != nil {
+			return nil, err
 		}
 	}
 
+	return selected, nil
+}
+
+func attachExistingParams(selected []config.SelectedModel, existing []config.Model) {
+	if len(existing) == 0 {
+		return
+	}
+	byID := make(map[string]*config.Model, len(existing))
+	for i := range existing {
+		byID[existing[i].Model] = &existing[i]
+	}
+	for i := range selected {
+		if ep, ok := byID[selected[i].ID]; ok {
+			selected[i].ExistingParams = ep
+		}
+	}
+}
+
+func runReasoningTUI(selected, reasoningModels []config.SelectedModel) ([]config.SelectedModel, error) {
+	rApp := newReasoningTuiApp(reasoningModels)
+	if err := rApp.run(); err != nil {
+		return nil, fmt.Errorf("run reasoning TUI: %w", err)
+	}
+	if rApp.confirmed {
+		return applyEfforts(selected, rApp.getEfforts()), nil
+	}
 	return selected, nil
 }

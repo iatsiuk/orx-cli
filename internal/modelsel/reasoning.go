@@ -122,7 +122,7 @@ func (a *reasoningTuiApp) effortLabel(id string) string {
 	if e == "" {
 		return "(skip)"
 	}
-	return "[" + e + "]"
+	return "(" + e + ")"
 }
 
 func (a *reasoningTuiApp) updateList() {

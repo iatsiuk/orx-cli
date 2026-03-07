@@ -293,9 +293,10 @@ func runInitInteractive(cmd *cobra.Command, opts *options, stderr io.Writer, pat
 	}
 
 	selected, err := modelsel.Run(ctx, token, &modelsel.Options{
-		Verbose:     opts.verbose,
-		VerboseW:    verboseW,
-		PreSelected: preSelected,
+		Verbose:        opts.verbose,
+		VerboseW:       verboseW,
+		PreSelected:    preSelected,
+		ExistingModels: existingModels,
 	})
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)

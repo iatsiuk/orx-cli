@@ -124,6 +124,25 @@ All documentation, comments, and text must be in English.
 - Key linters: goimports, govet, errcheck, staticcheck, unused
 - No trailing whitespace, proper import grouping (stdlib, external, local)
 
+## Architecture Notes
+
+### TUI testing pattern
+
+TUI screens (tview-based) are not unit-testable directly. Extract business logic as pure functions
+and test those; mark tview integration as "manual verification only". Example: `nextEffort`,
+`filterReasoningSelectedModels`, `applyEfforts`, `cycleEffort` are pure functions tested directly;
+`newReasoningTuiApp` + `run()` are verified manually.
+
+### Config generation merge priority (enabled models)
+
+1. `ReasoningEffort` from TUI (highest) - always controls "reasoning" param exclusively
+2. `DefaultParameters` from API - overrides ExistingParams for all other params
+3. `ExistingParams` from previous config (lowest) - baseline for params not in DefaultParameters
+
+Disabled models: only ExistingParams emitted (no API defaults, no TUI input).
+When user skips reasoning TUI (Esc), "reasoning" goes to `// available:` comment regardless
+of ExistingParams.
+
 ## Working with todo.md
 
 - Mark completed items with `[x]`: `- [x] Completed task`

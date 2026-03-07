@@ -262,6 +262,8 @@ func TestNextEffort(t *testing.T) {
 		{"medium", "high"},
 		{"high", "xhigh"},
 		{"xhigh", ""},
+		{"invalid", "none"},
+		{"HIGH", "none"},
 	}
 
 	for _, tt := range tests {
