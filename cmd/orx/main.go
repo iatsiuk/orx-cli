@@ -329,18 +329,28 @@ func extractPreSelected(models []config.Model) []string {
 }
 
 func mergeDisabledModels(existing []config.Model, selected []config.SelectedModel) []config.SelectedModel {
-	selectedSet := make(map[string]struct{}, len(selected))
-	for _, m := range selected {
-		selectedSet[m.ID] = struct{}{}
+	existingByID := make(map[string]*config.Model, len(existing))
+	for i := range existing {
+		existingByID[existing[i].Model] = &existing[i]
 	}
 
-	result := append([]config.SelectedModel(nil), selected...)
+	result := make([]config.SelectedModel, len(selected))
+	selectedSet := make(map[string]struct{}, len(selected))
+	for i, m := range selected {
+		selectedSet[m.ID] = struct{}{}
+		if ep, ok := existingByID[m.ID]; ok {
+			m.ExistingParams = ep
+		}
+		result[i] = m
+	}
+
 	for i := range existing {
 		if _, ok := selectedSet[existing[i].Model]; !ok {
 			result = append(result, config.SelectedModel{
-				ID:      existing[i].Model,
-				Name:    existing[i].Name,
-				Enabled: false,
+				ID:             existing[i].Model,
+				Name:           existing[i].Name,
+				Enabled:        false,
+				ExistingParams: &existing[i],
 			})
 		}
 	}

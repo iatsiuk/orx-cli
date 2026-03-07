@@ -21,8 +21,8 @@ func GenerateFromModels(models []SelectedModel) string {
 	sb.WriteString("{\n")
 	sb.WriteString("  \"models\": [\n")
 
-	for i, m := range models {
-		gm := buildModel(m)
+	for i := range models {
+		gm := buildModel(&models[i])
 		writeModel(&sb, gm, i == len(models)-1)
 	}
 
@@ -31,7 +31,7 @@ func GenerateFromModels(models []SelectedModel) string {
 	return sb.String()
 }
 
-func buildModel(m SelectedModel) generatedModel {
+func buildModel(m *SelectedModel) generatedModel {
 	gm := generatedModel{
 		Name:         m.Name,
 		Model:        m.ID,
@@ -39,17 +39,92 @@ func buildModel(m SelectedModel) generatedModel {
 		ActiveParams: make(map[string]any),
 	}
 
-	if m.Enabled {
+	if !m.Enabled {
+		if m.ExistingParams != nil {
+			gm.ActiveParams = modelToParamsMap(m.ExistingParams)
+		}
+		return gm
+	}
+
+	// for enabled models: ExistingParams as baseline, API DefaultParameters override
+	if m.ExistingParams != nil {
+		existing := modelToParamsMap(m.ExistingParams)
 		for _, param := range m.SupportedParameters {
-			if val, ok := m.DefaultParameters[param]; ok && val != nil {
+			if val, ok := existing[param]; ok {
 				gm.ActiveParams[param] = val
-			} else {
-				gm.AvailableKeys = append(gm.AvailableKeys, param)
 			}
 		}
 	}
 
+	for _, param := range m.SupportedParameters {
+		if val, ok := m.DefaultParameters[param]; ok && val != nil {
+			gm.ActiveParams[param] = val
+		} else if _, active := gm.ActiveParams[param]; !active {
+			gm.AvailableKeys = append(gm.AvailableKeys, param)
+		}
+	}
+
 	return gm
+}
+
+func modelToParamsMap(m *Model) map[string]any {
+	params := modelSamplingParams(m)
+	if m.Stop != nil {
+		params["stop"] = m.Stop
+	}
+	if m.Reasoning != nil {
+		params["reasoning"] = m.Reasoning
+	}
+	if m.IncludeReasoning != nil {
+		params["include_reasoning"] = *m.IncludeReasoning
+	}
+	if m.Provider != nil {
+		params["provider"] = m.Provider
+	}
+	return params
+}
+
+func modelSamplingParams(m *Model) map[string]any {
+	params := modelPenaltyParams(m)
+	if m.TopA != nil {
+		params["top_a"] = *m.TopA
+	}
+	if m.Seed != nil {
+		params["seed"] = *m.Seed
+	}
+	if m.MaxTokens != nil {
+		params["max_tokens"] = *m.MaxTokens
+	}
+	if m.MaxCompletionTokens != nil {
+		params["max_completion_tokens"] = *m.MaxCompletionTokens
+	}
+	return params
+}
+
+func modelPenaltyParams(m *Model) map[string]any {
+	params := make(map[string]any)
+	if m.Temperature != nil {
+		params["temperature"] = *m.Temperature
+	}
+	if m.TopP != nil {
+		params["top_p"] = *m.TopP
+	}
+	if m.TopK != nil {
+		params["top_k"] = *m.TopK
+	}
+	if m.FrequencyPenalty != nil {
+		params["frequency_penalty"] = *m.FrequencyPenalty
+	}
+	if m.PresencePenalty != nil {
+		params["presence_penalty"] = *m.PresencePenalty
+	}
+	if m.RepetitionPenalty != nil {
+		params["repetition_penalty"] = *m.RepetitionPenalty
+	}
+	if m.MinP != nil {
+		params["min_p"] = *m.MinP
+	}
+	return params
 }
 
 func writeModel(sb *strings.Builder, gm generatedModel, isLast bool) {

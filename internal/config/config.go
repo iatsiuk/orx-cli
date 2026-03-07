@@ -204,4 +204,5 @@ type SelectedModel struct {
 	Enabled             bool
 	SupportedParameters []string
 	DefaultParameters   map[string]any
+	ExistingParams      *Model
 }

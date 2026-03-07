@@ -374,6 +374,97 @@ func TestMergeDisabledModels_NoExisting(t *testing.T) {
 	}
 }
 
+func TestMergeDisabledModels_PreservesExistingParams(t *testing.T) {
+	t.Parallel()
+
+	temp := float64(0.7)
+	existing := []config.Model{
+		{Name: "Model A", Model: "provider/model-a", Temperature: &temp},
+	}
+	selected := []config.SelectedModel{}
+
+	result := mergeDisabledModels(existing, selected)
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	if result[0].ExistingParams == nil {
+		t.Fatal("expected ExistingParams to be set for disabled model")
+	}
+	if result[0].ExistingParams.Temperature == nil || *result[0].ExistingParams.Temperature != 0.7 {
+		t.Errorf("expected temperature 0.7, got %v", result[0].ExistingParams.Temperature)
+	}
+}
+
+func TestMergeDisabledModels_PreservesReasoningInExistingParams(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Model R", Model: "provider/model-r", Reasoning: &config.ReasoningConfig{Effort: "high"}},
+	}
+	selected := []config.SelectedModel{}
+
+	result := mergeDisabledModels(existing, selected)
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	if result[0].ExistingParams == nil {
+		t.Fatal("expected ExistingParams to be set")
+	}
+	if result[0].ExistingParams.Reasoning == nil || result[0].ExistingParams.Reasoning.Effort != "high" {
+		t.Errorf("expected reasoning effort 'high', got %+v", result[0].ExistingParams.Reasoning)
+	}
+}
+
+func TestMergeDisabledModels_EnabledModelGetsExistingParams(t *testing.T) {
+	t.Parallel()
+
+	temp := float64(0.5)
+	existing := []config.Model{
+		{Name: "Model A", Model: "provider/model-a", Temperature: &temp},
+	}
+	selected := []config.SelectedModel{
+		{ID: "provider/model-a", Name: "Model A", Enabled: true},
+	}
+
+	result := mergeDisabledModels(existing, selected)
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	if result[0].ExistingParams == nil {
+		t.Fatal("expected ExistingParams to be set for enabled model with existing config")
+	}
+	if result[0].ExistingParams.Temperature == nil || *result[0].ExistingParams.Temperature != 0.5 {
+		t.Errorf("expected temperature 0.5, got %v", result[0].ExistingParams.Temperature)
+	}
+}
+
+func TestMergeDisabledModels_NewModelHasNilExistingParams(t *testing.T) {
+	t.Parallel()
+
+	existing := []config.Model{
+		{Name: "Model A", Model: "provider/model-a"},
+	}
+	selected := []config.SelectedModel{
+		{ID: "provider/model-new", Name: "New Model", Enabled: true},
+	}
+
+	result := mergeDisabledModels(existing, selected)
+
+	// model-new was not in existing config
+	byID := make(map[string]config.SelectedModel, len(result))
+	for _, m := range result {
+		byID[m.ID] = m
+	}
+	if nm, ok := byID["provider/model-new"]; !ok {
+		t.Fatal("expected model-new in result")
+	} else if nm.ExistingParams != nil {
+		t.Errorf("expected nil ExistingParams for new model, got %+v", nm.ExistingParams)
+	}
+}
+
 func TestMergeDisabledModels_EmptySelected(t *testing.T) {
 	t.Parallel()
 

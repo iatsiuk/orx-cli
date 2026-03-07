@@ -54,17 +54,17 @@
 ### Task 1: Preserve existing config parameters on re-init
 Currently `mergeDisabledModels()` creates new `SelectedModel{ID, Name, Enabled}` for disabled models, silently dropping all user-configured parameters (temperature, reasoning, top_p, etc.). `SelectedModel` also lacks fields to carry these values. This task adds an `ExistingParams` field and populates it from the existing config so `GenerateFromModels()` can emit them back.
 
-- [ ] write test in `cmd/orx/main_test.go`: `TestMergeDisabledModels_PreservesExistingParams` - disabled model with `Temperature: 0.7` in existing config should have that value in merged result's `ExistingParams`
-- [ ] write test: disabled model with `Reasoning: {Effort: "high"}` in existing config should preserve reasoning in `ExistingParams`
-- [ ] write test: enabled (selected) model should also carry `ExistingParams` from existing config if it was previously configured
-- [ ] write test: model not in existing config should have nil `ExistingParams`
-- [ ] write test in `internal/config/generate_test.go`: `TestGenerateFromModels_WithExistingParams` - model with `ExistingParams` containing temperature should emit `"temperature": 0.7` in output
-- [ ] write test: `ExistingParams` should NOT override `DefaultParameters` from API for enabled models - API defaults take precedence
-- [ ] run tests - expect failures
-- [ ] add `ExistingParams *Model` field to `SelectedModel` in `internal/config/config.go` (pointer to existing `Model` struct)
-- [ ] update `mergeDisabledModels()` in `cmd/orx/main.go`: look up existing model by ID and set `ExistingParams` for both disabled and selected models
-- [ ] update `buildModel()` in `internal/config/generate.go`: for enabled models, merge `ExistingParams` fields as active params (lower priority than API `DefaultParameters`); for disabled models, emit all `ExistingParams` fields
-- [ ] run tests - must pass before next task
+- [x] write test in `cmd/orx/main_test.go`: `TestMergeDisabledModels_PreservesExistingParams` - disabled model with `Temperature: 0.7` in existing config should have that value in merged result's `ExistingParams`
+- [x] write test: disabled model with `Reasoning: {Effort: "high"}` in existing config should preserve reasoning in `ExistingParams`
+- [x] write test: enabled (selected) model should also carry `ExistingParams` from existing config if it was previously configured
+- [x] write test: model not in existing config should have nil `ExistingParams`
+- [x] write test in `internal/config/generate_test.go`: `TestGenerateFromModels_WithExistingParams` - model with `ExistingParams` containing temperature should emit `"temperature": 0.7` in output
+- [x] write test: `ExistingParams` should NOT override `DefaultParameters` from API for enabled models - API defaults take precedence
+- [x] run tests - expect failures
+- [x] add `ExistingParams *Model` field to `SelectedModel` in `internal/config/config.go` (pointer to existing `Model` struct)
+- [x] update `mergeDisabledModels()` in `cmd/orx/main.go`: look up existing model by ID and set `ExistingParams` for both disabled and selected models
+- [x] update `buildModel()` in `internal/config/generate.go`: for enabled models, merge `ExistingParams` fields as active params (lower priority than API `DefaultParameters`); for disabled models, emit all `ExistingParams` fields
+- [x] run tests - must pass before next task
 
 ### Task 2: Add ReasoningEffort field to SelectedModel
 - [ ] write test in `internal/config/generate_test.go`: `TestGenerateFromModels_WithReasoningEffort` - model with `ReasoningEffort: "high"` generates `"reasoning": {"effort": "high"}` in output; validate by parsing output as JSON5 and checking `cfg.Models[0].Reasoning.Effort == "high"`

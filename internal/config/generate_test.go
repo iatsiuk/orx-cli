@@ -242,6 +242,83 @@ func TestGenerateFromModels_OutputIsValidJSON5(t *testing.T) {
 	}
 }
 
+func stripComments(s string) string {
+	lines := strings.Split(s, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if idx := strings.Index(line, "//"); idx != -1 {
+			line = line[:idx]
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
+func TestGenerateFromModels_WithExistingParams(t *testing.T) {
+	t.Parallel()
+
+	temp := float64(0.7)
+	models := []SelectedModel{
+		{
+			ID:      "test/model",
+			Name:    "Test Model",
+			Enabled: false,
+			ExistingParams: &Model{
+				Name:        "Test Model",
+				Model:       "test/model",
+				Temperature: &temp,
+			},
+		},
+	}
+
+	result := GenerateFromModels(models)
+
+	if !containsAsJSONKey(result, "temperature") {
+		t.Error("expected temperature in output for disabled model with ExistingParams")
+	}
+
+	var cfg Config
+	if err := json5.Unmarshal([]byte(stripComments(result)), &cfg); err != nil {
+		t.Fatalf("output is not valid JSON5: %v", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("config validation failed: %v", err)
+	}
+	if len(cfg.Models) != 1 || cfg.Models[0].Temperature == nil || *cfg.Models[0].Temperature != 0.7 {
+		t.Errorf("expected temperature 0.7, got %v", cfg.Models[0].Temperature)
+	}
+}
+
+func TestGenerateFromModels_ExistingParamsLowerPriorityThanDefaults(t *testing.T) {
+	t.Parallel()
+
+	existingTemp := float64(0.3)
+	models := []SelectedModel{
+		{
+			ID:                  "test/model",
+			Name:                "Test Model",
+			Enabled:             true,
+			SupportedParameters: []string{"temperature"},
+			DefaultParameters:   map[string]any{"temperature": float64(1.0)},
+			ExistingParams: &Model{
+				Name:        "Test Model",
+				Model:       "test/model",
+				Temperature: &existingTemp,
+			},
+		},
+	}
+
+	result := GenerateFromModels(models)
+
+	// API default (1.0) should take precedence over ExistingParams (0.3)
+	if strings.Contains(result, "0.3") {
+		t.Error("ExistingParams temperature should not override API default")
+	}
+	if !strings.Contains(result, `"temperature": 1`) {
+		t.Errorf("expected API default temperature 1 in output, got:\n%s", result)
+	}
+}
+
 func TestWriteConfig(t *testing.T) {
 	t.Parallel()
 
