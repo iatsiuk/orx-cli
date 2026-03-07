@@ -161,6 +161,7 @@ func writeModel(sb *strings.Builder, gm generatedModel, isLast bool) {
 	sb.WriteString("\n")
 
 	if len(gm.AvailableKeys) > 0 {
+		sort.Strings(gm.AvailableKeys)
 		fmt.Fprintf(sb, "      // available: %s\n", strings.Join(gm.AvailableKeys, ", "))
 	}
 
