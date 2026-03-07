@@ -1,0 +1,83 @@
+#!/bin/bash
+#
+# orx wrapper for ralphex custom review
+#
+# contract: receives one argument - path to prompt file
+# prompt contains "git diff ..." instruction that LLMs can't execute
+# this script runs the diff itself and passes both prompt + diff to orx
+#
+
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+    echo "error: usage: $0 <prompt-file>" >&2
+    exit 1
+fi
+
+PROMPT_FILE="$1"
+
+if [[ ! -f "$PROMPT_FILE" ]]; then
+    echo "error: prompt file not found: $PROMPT_FILE" >&2
+    exit 1
+fi
+
+# verify jq is available early
+if ! command -v jq >/dev/null 2>&1; then
+    echo "error: jq is required but not found on PATH" >&2
+    exit 1
+fi
+
+# extract git diff command: next non-empty line after the marker
+DIFF_CMD=$(awk '/Run this command to see the changes:/ { found=1; next } found && NF { print; exit }' < "$PROMPT_FILE")
+if [[ -z "$DIFF_CMD" ]]; then
+    DIFF_CMD="git diff"
+fi
+
+# split into array instead of eval
+read -r -a DIFF_ARGS <<< "$DIFF_CMD"
+# guard against short arrays before indexing element 1
+if [[ ${#DIFF_ARGS[@]} -lt 2 || "${DIFF_ARGS[0]}" != "git" || "${DIFF_ARGS[1]}" != "diff" ]]; then
+    echo "error: unexpected command extracted: $DIFF_CMD" >&2
+    exit 2
+fi
+
+# use portable mktemp (macOS -t prefix differs from GNU)
+DIFF_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-diff.XXXXXX")
+JSON_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-json.XXXXXX")
+ERR_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-err.XXXXXX")
+trap 'rm -f "$DIFF_TMPFILE" "$JSON_TMPFILE" "$ERR_TMPFILE"' EXIT INT TERM HUP
+
+# --no-ext-diff --no-textconv: prevent .gitattributes from invoking external commands
+if ! git -c color.ui=false diff --no-ext-diff --no-textconv "${DIFF_ARGS[@]:2}" > "$DIFF_TMPFILE"; then
+    echo "error: git diff failed" >&2
+    exit 3
+fi
+
+# run orx even with empty diff -- prompt may contain PREVIOUS REVIEW CONTEXT
+# that external LLMs need to re-evaluate (dismiss flow).
+# capture stdout (JSON) and stderr (progress) to separate temp files so that
+# ralphex (which merges stderr into stdout) does not see orx progress output.
+# orx exits 1 on partial model failure, 2 on total failure; allow 1 (valid JSON may exist).
+orx_exit=0
+orx -p "$PROMPT_FILE" -f "$DIFF_TMPFILE" --max-file-size 512KB \
+    >"$JSON_TMPFILE" 2>"$ERR_TMPFILE" || orx_exit=$?
+
+if [[ $orx_exit -gt 1 ]]; then
+    echo "error: orx failed (exit $orx_exit)" >&2
+    cat "$ERR_TMPFILE" >&2
+    exit 4
+fi
+
+# format JSON to plain text; if jq fails, emit captured orx stderr for debugging
+if ! jq -r '
+  .results[] |
+  if .status == "success" then
+    "=== \(.name) ===\n\(.content)\n"
+  else
+    "=== \(.name) [ERROR] ===\n\(.error // "unknown error")\n"
+  end
+' < "$JSON_TMPFILE"; then
+    echo "error: failed to parse orx output" >&2
+    cat "$ERR_TMPFILE" >&2
+    exit 4
+fi

@@ -48,16 +48,16 @@
 ## Implementation Steps
 
 ### Task 1: Add script to repo
-- [ ] copy `/Users/me/Desktop/orx-review.sh` to `scripts/orx-ralphex-review`
-- [ ] rename, remove `.sh` extension (installed as binary name)
-- [ ] add shebang `#!/bin/bash`, ensure `set -euo pipefail`
-- [ ] fix stderr: capture orx output to temp files (`>json 2>err`), not pipe, to isolate stderr from stdout
-- [ ] fix pipefail: don't pipe orx to jq directly; capture JSON to file, then format separately
-- [ ] fix git diff safety: add `--no-ext-diff --no-textconv` flags to git diff invocation
-- [ ] fix mktemp portability: use `mktemp "${TMPDIR:-/tmp}/ralphex-orx-diff.XXXXXX"` instead of `mktemp -t`
-- [ ] fix unbound variable: guard `${DIFF_ARGS[1]}` access with array length check
-- [ ] verify script is executable (`chmod +x`)
-- [ ] run script manually against a test prompt file
+- [x] copy `/Users/me/Desktop/orx-review.sh` to `scripts/orx-ralphex-review`
+- [x] rename, remove `.sh` extension (installed as binary name)
+- [x] add shebang `#!/bin/bash`, ensure `set -euo pipefail`
+- [x] fix stderr: capture orx output to temp files (`>json 2>err`), not pipe, to isolate stderr from stdout
+- [x] fix pipefail: don't pipe orx to jq directly; capture JSON to file, then format separately
+- [x] fix git diff safety: add `--no-ext-diff --no-textconv` flags to git diff invocation
+- [x] fix mktemp portability: use `mktemp "${TMPDIR:-/tmp}/ralphex-orx-diff.XXXXXX"` instead of `mktemp -t`
+- [x] fix unbound variable: guard `${DIFF_ARGS[1]}` access with array length check
+- [x] verify script is executable (`chmod +x`)
+- [x] run script manually against a test prompt file
 
 ### Task 2: Update build configuration
 - [ ] add `extra_files` in `.goreleaser.yaml` archives section to include the script
