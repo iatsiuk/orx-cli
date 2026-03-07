@@ -88,6 +88,25 @@ models in the TUI. After confirming:
 - Deselected models are written as `"enabled": false` (not removed)
 - Models from the old config absent from the API are preserved as `"enabled": false`
 - If the existing config fails to load, the TUI starts with no pre-selection
+- Existing user-configured parameters (temperature, reasoning, etc.) are preserved
+
+After model selection, if any selected models support reasoning (o1, o3, deepseek-r1,
+claude with extended thinking, etc.), a second TUI screen appears for setting reasoning
+effort per model:
+
+```
++--[ Reasoning Effort ]-----------------------+
+| anthropic/claude-4-opus      effort: [high]  |
+| deepseek/deepseek-r1         effort: (skip)  |
+| openai/o3                    effort: [medium] |
++----------------------------------------------+
+ Space: cycle effort  Enter: done  Esc: skip all
+```
+
+- Space cycles effort: (skip) -> none -> minimal -> low -> medium -> high -> xhigh -> (skip)
+- Enter confirms selections; models with (skip) keep `reasoning` in `// available:` comment
+- Esc skips reasoning setup for all models (does not cancel init)
+- Previously configured effort values are pre-loaded from existing config
 
 ### Examples
 

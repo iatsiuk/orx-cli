@@ -125,7 +125,7 @@ Currently `mergeDisabledModels()` creates new `SelectedModel{ID, Name, Enabled}`
 - [x] verify test coverage for new code
 
 ### Task 7: [Final] Update documentation
-- [ ] update README.md if init command documentation needs changes
+- [x] update README.md if init command documentation needs changes
 
 ## Technical Details
 
