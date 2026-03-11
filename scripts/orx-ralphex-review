@@ -44,8 +44,7 @@ fi
 # use portable mktemp (macOS -t prefix differs from GNU)
 DIFF_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-diff.XXXXXX")
 JSON_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-json.XXXXXX")
-ERR_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-err.XXXXXX")
-trap 'rm -f "$DIFF_TMPFILE" "$JSON_TMPFILE" "$ERR_TMPFILE" || true' EXIT INT TERM HUP
+trap 'rm -f "$DIFF_TMPFILE" "$JSON_TMPFILE" || true' EXIT INT TERM HUP
 
 # reject flags that bypass security controls or write diff to an arbitrary path
 for _arg in "${DIFF_ARGS[@]:2}"; do
@@ -68,20 +67,19 @@ fi
 
 # run orx even with empty diff -- prompt may contain PREVIOUS REVIEW CONTEXT
 # that external LLMs need to re-evaluate (dismiss flow).
-# capture stdout (JSON) and stderr (progress) to separate temp files so that
-# ralphex (which merges stderr into stdout) does not see orx progress output.
+# capture stdout (JSON) to temp file; let stderr (progress) pass through so
+# ralphex can stream orx status updates (requesting/done) in real time.
 # orx exits 1 on partial model failure, 2 on total failure; allow 1 (valid JSON may exist).
 orx_exit=0
 orx -p "$PROMPT_FILE" -f "$DIFF_TMPFILE" --max-file-size 512KB \
-    >"$JSON_TMPFILE" 2>"$ERR_TMPFILE" || orx_exit=$?
+    >"$JSON_TMPFILE" || orx_exit=$?
 
 if [[ $orx_exit -gt 1 ]]; then
     echo "error: orx failed (exit $orx_exit)" >&2
-    cat "$ERR_TMPFILE" >&2
     exit 4
 fi
 
-# format JSON to plain text; if jq fails, emit captured orx stderr for debugging
+# format JSON to plain text
 if ! jq -r '
   .results[] |
   if .status == "success" then
@@ -91,6 +89,5 @@ if ! jq -r '
   end
 ' < "$JSON_TMPFILE"; then
     echo "error: failed to parse orx output" >&2
-    cat "$ERR_TMPFILE" >&2
     exit 4
 fi

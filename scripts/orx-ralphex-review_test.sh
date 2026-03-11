@@ -21,7 +21,7 @@ trap 'rm -rf "$WORK"' EXIT INT TERM HUP
 MOCKS="$WORK/mocks"
 mkdir -p "$MOCKS"
 
-# --- mock: orx (success, writes JSON, leaks progress to stderr) ---
+# --- mock: orx (success, writes JSON, emits progress to stderr) ---
 cat > "$MOCKS/orx" <<'MOCK'
 #!/bin/bash
 echo "orx: querying 2 models" >&2
