@@ -146,6 +146,28 @@ type Usage struct {
 	Cost             *float64 `json:"cost,omitempty"`
 }
 
+type KeyInfoResponse struct {
+	Data KeyInfoData `json:"data"`
+}
+
+type KeyInfoData struct {
+	Label              string   `json:"label"`
+	Limit              *float64 `json:"limit"`
+	LimitReset         *string  `json:"limit_reset"`
+	LimitRemaining     *float64 `json:"limit_remaining"`
+	IncludeBYOKInLimit bool     `json:"include_byok_in_limit"`
+	Usage              float64  `json:"usage"`
+	UsageDaily         float64  `json:"usage_daily"`
+	UsageWeekly        float64  `json:"usage_weekly"`
+	UsageMonthly       float64  `json:"usage_monthly"`
+	IsFreeTier         bool     `json:"is_free_tier"`
+}
+
+// KeyInfo fetches API key usage info from the /api/v1/key endpoint.
+func (c *Client) KeyInfo(ctx context.Context) (*KeyInfoResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 type Result struct {
 	Name       string   `json:"name"`
 	Model      string   `json:"-"`

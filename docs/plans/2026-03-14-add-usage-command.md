@@ -46,13 +46,13 @@
 ## Implementation Steps
 
 ### Task 1: Write tests for `KeyInfo()` client method
-- [ ] define `KeyInfoResponse` and `KeyInfoData` types in `client.go` (structs only, no logic)
-- [ ] write test `TestKeyInfo_Success` - mock server returns full response, verify all fields parsed
-- [ ] write test `TestKeyInfo_Unauthorized` - mock server returns 401, verify error
-- [ ] write test `TestKeyInfo_InvalidJSON` - mock server returns garbage, verify error
-- [ ] write test `TestKeyInfo_Verbose` - verify verbose output includes request/response dump
-- [ ] write test `TestKeyInfo_ContextCancellation` - verify context propagation
-- [ ] run tests - must pass (they will fail until Task 2)
+- [x] define `KeyInfoResponse` and `KeyInfoData` types in `client.go` (structs only, no logic)
+- [x] write test `TestKeyInfo_Success` - mock server returns full response, verify all fields parsed
+- [x] write test `TestKeyInfo_Unauthorized` - mock server returns 401, verify error
+- [x] write test `TestKeyInfo_InvalidJSON` - mock server returns garbage, verify error
+- [x] write test `TestKeyInfo_Verbose` - verify verbose output includes request/response dump
+- [x] write test `TestKeyInfo_ContextCancellation` - verify context propagation
+- [x] run tests - must pass (they will fail until Task 2)
 
 ### Task 2: Implement `KeyInfo()` client method
 - [ ] add `keyInfoURL()` helper that derives `/api/v1/key` from `baseURL` (or use separate base)

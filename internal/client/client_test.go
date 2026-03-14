@@ -877,6 +877,165 @@ func TestExecute_RetryOnAPIError200(t *testing.T) {
 	}
 }
 
+func TestKeyInfo_Success(t *testing.T) {
+	t.Parallel()
+
+	limit := 10.0
+	limitRemaining := 7.5
+	limitReset := "2026-04-01T00:00:00Z"
+
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.Header.Get("Authorization") != "Bearer test-token" {
+			t.Error("missing or invalid authorization header")
+		}
+		_ = json.NewEncoder(w).Encode(KeyInfoResponse{
+			Data: KeyInfoData{
+				Label:          "my-key",
+				Limit:          &limit,
+				LimitReset:     &limitReset,
+				LimitRemaining: &limitRemaining,
+				Usage:          2.5,
+				UsageDaily:     0.3,
+				UsageWeekly:    1.2,
+				UsageMonthly:   2.5,
+				IsFreeTier:     false,
+			},
+		})
+	})
+
+	c := New("test-token", false, nil, WithBaseURL(server.URL+"/chat/completions"))
+	resp, err := c.KeyInfo(context.Background())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Data.Label != "my-key" {
+		t.Errorf("expected label 'my-key', got %q", resp.Data.Label)
+	}
+	if resp.Data.Limit == nil || *resp.Data.Limit != 10.0 {
+		t.Errorf("expected limit 10.0, got %v", resp.Data.Limit)
+	}
+	if resp.Data.LimitRemaining == nil || *resp.Data.LimitRemaining != 7.5 {
+		t.Errorf("expected limit_remaining 7.5, got %v", resp.Data.LimitRemaining)
+	}
+	if resp.Data.LimitReset == nil || *resp.Data.LimitReset != "2026-04-01T00:00:00Z" {
+		t.Errorf("unexpected limit_reset: %v", resp.Data.LimitReset)
+	}
+	if resp.Data.Usage != 2.5 {
+		t.Errorf("expected usage 2.5, got %v", resp.Data.Usage)
+	}
+	if resp.Data.UsageDaily != 0.3 {
+		t.Errorf("expected usage_daily 0.3, got %v", resp.Data.UsageDaily)
+	}
+	if resp.Data.UsageWeekly != 1.2 {
+		t.Errorf("expected usage_weekly 1.2, got %v", resp.Data.UsageWeekly)
+	}
+	if resp.Data.UsageMonthly != 2.5 {
+		t.Errorf("expected usage_monthly 2.5, got %v", resp.Data.UsageMonthly)
+	}
+	if resp.Data.IsFreeTier {
+		t.Error("expected is_free_tier false")
+	}
+}
+
+func TestKeyInfo_Unauthorized(t *testing.T) {
+	t.Parallel()
+
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"invalid api key"}`))
+	})
+
+	c := New("bad-token", false, nil, WithBaseURL(server.URL+"/chat/completions"))
+	resp, err := c.KeyInfo(context.Background())
+
+	if err == nil {
+		t.Fatal("expected error for 401")
+	}
+	if resp != nil {
+		t.Error("expected nil response on error")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("expected 401 in error, got %q", err.Error())
+	}
+}
+
+func TestKeyInfo_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("not valid json {{{"))
+	})
+
+	c := New("token", false, nil, WithBaseURL(server.URL+"/chat/completions"))
+	resp, err := c.KeyInfo(context.Background())
+
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+	if resp != nil {
+		t.Error("expected nil response on error")
+	}
+}
+
+func TestKeyInfo_Verbose(t *testing.T) {
+	t.Parallel()
+
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(KeyInfoResponse{
+			Data: KeyInfoData{Label: "test-key"},
+		})
+	})
+
+	var out strings.Builder
+	c := New("token", true, &out, WithBaseURL(server.URL+"/chat/completions"))
+	_, err := c.KeyInfo(context.Background())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "=== REQUEST [key] ===") {
+		t.Errorf("missing request dump in verbose output, got: %q", output)
+	}
+	if !strings.Contains(output, "=== RESPONSE [key] ===") {
+		t.Errorf("missing response dump in verbose output, got: %q", output)
+	}
+}
+
+func TestKeyInfo_ContextCancellation(t *testing.T) {
+	t.Parallel()
+
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(5 * time.Second)
+	})
+
+	c := New("token", false, nil, WithBaseURL(server.URL+"/chat/completions"))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	resp, err := c.KeyInfo(ctx)
+
+	if err == nil {
+		t.Fatal("expected error on context cancellation")
+	}
+	if resp != nil {
+		t.Error("expected nil response on error")
+	}
+	if !strings.Contains(err.Error(), "context canceled") {
+		t.Errorf("expected context canceled error, got %q", err.Error())
+	}
+}
+
 func TestIsRetryable_StreamError(t *testing.T) {
 	t.Parallel()
 
