@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -38,6 +39,7 @@ type options struct {
 	maxFileSize  string
 	maxTokens    int
 	systemPrompt string
+	baseURL      string
 }
 
 func main() {
@@ -73,14 +75,24 @@ func newRootCmd() *cobra.Command {
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
 	rootCmd.Flags().StringVarP(&opts.configPath, "config", "c", "", "config file (default: ~/.config/orx.json)")
-	rootCmd.Flags().IntVarP(&opts.timeout, "timeout", "t", 600, "global timeout in seconds")
+	rootCmd.PersistentFlags().IntVarP(&opts.timeout, "timeout", "t", 600, "global timeout in seconds")
 	rootCmd.PersistentFlags().StringVar(&opts.token, "token", "", "OpenRouter API key (default: $OPENROUTER_API_KEY)")
 	rootCmd.Flags().StringVarP(&opts.promptFile, "prompt-file", "p", "", "read prompt from file")
 	rootCmd.PersistentFlags().BoolVar(&opts.verbose, "verbose", false, "dump HTTP request/response")
+	rootCmd.PersistentFlags().StringVar(&opts.baseURL, "base-url", "", "override API base URL")
 	rootCmd.Flags().StringArrayVarP(&opts.files, "file", "f", nil, "file paths to include (can be repeated)")
 	rootCmd.Flags().StringVar(&opts.maxFileSize, "max-file-size", "64KB", "max size per file (e.g., 64KB, 1MB)")
 	rootCmd.Flags().IntVar(&opts.maxTokens, "max-tokens", 100000, "max estimated tokens in file content")
 	rootCmd.Flags().StringVarP(&opts.systemPrompt, "system", "s", "", "system prompt")
+
+	usageCmd := &cobra.Command{
+		Use:   "usage",
+		Short: "Show API key usage and limits",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runUsage(cmd, opts)
+		},
+	}
+	rootCmd.AddCommand(usageCmd)
 
 	initCmd := &cobra.Command{
 		Use:   "init",
@@ -127,7 +139,11 @@ func run(cmd *cobra.Command, opts *options) error {
 	if opts.verbose {
 		verboseOut = os.Stderr
 	}
-	cl := client.New(apiToken, opts.verbose, verboseOut)
+	var clientOpts []client.Option
+	if opts.baseURL != "" {
+		clientOpts = append(clientOpts, client.WithBaseURL(opts.baseURL))
+	}
+	cl := client.New(apiToken, opts.verbose, verboseOut, clientOpts...)
 	r := runner.New(cfg.EnabledModels(), cl, os.TempDir(),
 		runner.WithTimeout(time.Duration(opts.timeout)*time.Second),
 		runner.WithProgressOut(os.Stderr),
@@ -319,6 +335,65 @@ func extractPreSelected(models []config.Model) []string {
 		}
 	}
 	return ids
+}
+
+func runUsage(cmd *cobra.Command, opts *options) error {
+	token := getAPIToken(opts.token)
+	if token == "" {
+		return ErrTokenRequired
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(opts.timeout)*time.Second)
+	defer cancel()
+
+	var verboseOut io.Writer
+	if opts.verbose {
+		verboseOut = cmd.ErrOrStderr()
+	}
+
+	var clientOpts []client.Option
+	if opts.baseURL != "" {
+		clientOpts = append(clientOpts, client.WithBaseURL(opts.baseURL))
+	}
+
+	cl := client.New(token, opts.verbose, verboseOut, clientOpts...)
+
+	info, err := cl.KeyInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("fetch key info: %w", err)
+	}
+
+	_, _ = fmt.Fprint(cmd.OutOrStdout(), formatKeyInfo(&info.Data))
+	return nil
+}
+
+func formatKeyInfo(d *client.KeyInfoData) string {
+	var sb strings.Builder
+
+	tier := "paid"
+	if d.IsFreeTier {
+		tier = "free"
+	}
+
+	fmt.Fprintf(&sb, "API Key:  %s\n", d.Label)
+	fmt.Fprintf(&sb, "Tier:     %s\n", tier)
+	fmt.Fprintf(&sb, "\nUsage:\n")
+	fmt.Fprintf(&sb, "  Total:   $%.2f\n", d.Usage)
+	fmt.Fprintf(&sb, "  Daily:   $%.2f\n", d.UsageDaily)
+	fmt.Fprintf(&sb, "  Weekly:  $%.2f\n", d.UsageWeekly)
+	fmt.Fprintf(&sb, "  Monthly: $%.2f\n", d.UsageMonthly)
+
+	if d.Limit != nil {
+		fmt.Fprintf(&sb, "\nLimit:     $%.2f\n", *d.Limit)
+		if d.LimitRemaining != nil {
+			fmt.Fprintf(&sb, "Remaining: $%.2f\n", *d.LimitRemaining)
+		}
+	}
+
+	return sb.String()
 }
 
 func mergeDisabledModels(existing []config.Model, selected []config.SelectedModel) []config.SelectedModel {

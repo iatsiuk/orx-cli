@@ -60,6 +60,7 @@ echo "Explain TCP vs UDP" | orx
 ```
 orx [flags] < prompt.txt
 orx init [--output path] [--template]
+orx usage
 
 Flags:
   -c, --config string        Path to config file (default: ~/.config/orx.json)
@@ -71,6 +72,7 @@ Flags:
       --max-file-size string Max size per file (default: "64KB")
       --max-tokens int       Max estimated tokens in files (default: 100000)
       --verbose              Dump HTTP request/response to stderr
+      --base-url string      Override API base URL (e.g. https://openrouter.ai/api/v1)
   -h, --help                 Show help
   -v, --version              Show version
 
@@ -80,6 +82,7 @@ Init Flags:
 
 Subcommands:
   init    Interactive model selection and configuration file generation
+  usage   Show API key usage and limits
 ```
 
 Re-running `orx init` when a config already exists pre-selects previously enabled

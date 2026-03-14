@@ -37,7 +37,7 @@ var retryableAPIPatterns = []string{
 }
 
 const (
-	defaultBaseURL = "https://openrouter.ai/api/v1/chat/completions"
+	defaultBaseURL = "https://openrouter.ai/api/v1"
 	maxRetries     = 3
 	retryDelay     = 5 * time.Second
 )
@@ -54,7 +54,7 @@ type Option func(*Client)
 
 func WithBaseURL(url string) Option {
 	return func(c *Client) {
-		c.baseURL = url
+		c.baseURL = strings.TrimRight(url, "/")
 	}
 }
 
@@ -144,6 +144,70 @@ type Usage struct {
 	CompletionTokens int      `json:"completion_tokens"`
 	TotalTokens      int      `json:"total_tokens"`
 	Cost             *float64 `json:"cost,omitempty"`
+}
+
+type KeyInfoResponse struct {
+	Data KeyInfoData `json:"data"`
+}
+
+type KeyInfoData struct {
+	Label              string   `json:"label"`
+	Limit              *float64 `json:"limit"`
+	LimitReset         *string  `json:"limit_reset"`
+	LimitRemaining     *float64 `json:"limit_remaining"`
+	IncludeBYOKInLimit bool     `json:"include_byok_in_limit"`
+	Usage              float64  `json:"usage"`
+	UsageDaily         float64  `json:"usage_daily"`
+	UsageWeekly        float64  `json:"usage_weekly"`
+	UsageMonthly       float64  `json:"usage_monthly"`
+	IsFreeTier         bool     `json:"is_free_tier"`
+}
+
+// keyInfoURL returns the /key endpoint URL.
+func (c *Client) keyInfoURL() string {
+	return c.baseURL + "/key"
+}
+
+// KeyInfo fetches API key usage info from the /api/v1/key endpoint.
+func (c *Client) KeyInfo(ctx context.Context) (*KeyInfoResponse, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.keyInfoURL(), http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+c.token)
+
+	if c.verbose && c.output != nil {
+		dump, _ := httputil.DumpRequestOut(httpReq, true)
+		_, _ = fmt.Fprintf(c.output, "\n=== REQUEST [key] ===\n%s\n", dump)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if c.verbose && c.output != nil {
+		_, _ = fmt.Fprintf(c.output, "\n=== RESPONSE [key] ===\nHTTP/%d.%d %s\n\n%s\n",
+			resp.ProtoMajor, resp.ProtoMinor, resp.Status, body)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+	}
+
+	var result KeyInfoResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 type Result struct {
@@ -293,7 +357,7 @@ func (c *Client) buildHTTPRequest(ctx context.Context, name string, req *Request
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
