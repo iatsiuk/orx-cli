@@ -360,7 +360,7 @@ func runUsage(cmd *cobra.Command, opts *options) error {
 
 	info, err := cl.KeyInfo(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("fetch key info: %w", err)
 	}
 
 	_, _ = fmt.Fprint(cmd.OutOrStdout(), formatKeyInfo(&info.Data))
