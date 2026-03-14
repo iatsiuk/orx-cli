@@ -72,7 +72,7 @@ Flags:
       --max-file-size string Max size per file (default: "64KB")
       --max-tokens int       Max estimated tokens in files (default: 100000)
       --verbose              Dump HTTP request/response to stderr
-      --base-url string      Override API base URL
+      --base-url string      Override API base URL (e.g. https://openrouter.ai/api/v1)
   -h, --help                 Show help
   -v, --version              Show version
 
