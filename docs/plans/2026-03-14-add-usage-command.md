@@ -77,11 +77,11 @@
 - [x] run tests - all Task 3 tests must pass
 
 ### Task 5: Verify acceptance criteria
-- [ ] verify all requirements from Overview are implemented
-- [ ] verify edge cases are handled (nil limit, nil limit_remaining, free tier)
-- [ ] run full test suite (`go test -race ./...`)
-- [ ] run linter (`golangci-lint run`) - all issues must be fixed
-- [ ] `make build` passes
+- [x] verify all requirements from Overview are implemented
+- [x] verify edge cases are handled (nil limit, nil limit_remaining, free tier)
+- [x] run full test suite (`go test -race ./...`)
+- [x] run linter (`golangci-lint run`) - all issues must be fixed
+- [x] `make build` passes
 
 ## Technical Details
 
