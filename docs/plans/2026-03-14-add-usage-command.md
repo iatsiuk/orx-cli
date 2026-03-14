@@ -55,12 +55,12 @@
 - [x] run tests - must pass (they will fail until Task 2)
 
 ### Task 2: Implement `KeyInfo()` client method
-- [ ] add `keyInfoURL()` helper that derives `/api/v1/key` from `baseURL` (or use separate base)
-- [ ] implement `KeyInfo(ctx context.Context) (*KeyInfoResponse, error)` method on `Client`
-- [ ] handle HTTP errors (non-200 status codes)
-- [ ] handle JSON parsing
-- [ ] support verbose mode (dump request/response)
-- [ ] run tests - all Task 1 tests must pass
+- [x] add `keyInfoURL()` helper that derives `/api/v1/key` from `baseURL` (or use separate base)
+- [x] implement `KeyInfo(ctx context.Context) (*KeyInfoResponse, error)` method on `Client`
+- [x] handle HTTP errors (non-200 status codes)
+- [x] handle JSON parsing
+- [x] support verbose mode (dump request/response)
+- [x] run tests - all Task 1 tests must pass
 
 ### Task 3: Write tests for `usage` cobra subcommand
 - [ ] write test `TestUsageCmd_Success` - mock server, verify formatted output on stdout

@@ -163,9 +163,52 @@ type KeyInfoData struct {
 	IsFreeTier         bool     `json:"is_free_tier"`
 }
 
+// keyInfoURL derives the /api/v1/key endpoint URL from baseURL.
+func (c *Client) keyInfoURL() string {
+	base := strings.TrimSuffix(c.baseURL, "/chat/completions")
+	return base + "/key"
+}
+
 // KeyInfo fetches API key usage info from the /api/v1/key endpoint.
 func (c *Client) KeyInfo(ctx context.Context) (*KeyInfoResponse, error) {
-	return nil, fmt.Errorf("not implemented")
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.keyInfoURL(), http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+c.token)
+
+	if c.verbose && c.output != nil {
+		dump, _ := httputil.DumpRequestOut(httpReq, true)
+		_, _ = fmt.Fprintf(c.output, "\n=== REQUEST [key] ===\n%s\n", dump)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if c.verbose && c.output != nil {
+		_, _ = fmt.Fprintf(c.output, "\n=== RESPONSE [key] ===\nHTTP/%d.%d %s\n\n%s\n",
+			resp.ProtoMajor, resp.ProtoMinor, resp.Status, body)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+	}
+
+	var result KeyInfoResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 type Result struct {
