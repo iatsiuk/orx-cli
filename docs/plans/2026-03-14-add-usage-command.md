@@ -63,12 +63,12 @@
 - [x] run tests - all Task 1 tests must pass
 
 ### Task 3: Write tests for `usage` cobra subcommand
-- [ ] write test `TestUsageCmd_Success` - mock server, verify formatted output on stdout
-- [ ] write test `TestUsageCmd_MissingToken` - verify ErrTokenRequired
-- [ ] write test `TestUsageCmd_APIError` - mock server returns error, verify error propagated
-- [ ] write test `TestUsageCmd_WithLimit` - verify limit/remaining displayed when present
-- [ ] write test `TestUsageCmd_NoLimit` - verify output when limit is null
-- [ ] run tests - must pass (they will fail until Task 4)
+- [x] write test `TestUsageCmd_Success` - mock server, verify formatted output on stdout
+- [x] write test `TestUsageCmd_MissingToken` - verify ErrTokenRequired
+- [x] write test `TestUsageCmd_APIError` - mock server returns error, verify error propagated
+- [x] write test `TestUsageCmd_WithLimit` - verify limit/remaining displayed when present
+- [x] write test `TestUsageCmd_NoLimit` - verify output when limit is null
+- [x] run tests - must pass (they will fail until Task 4)
 
 ### Task 4: Implement `usage` cobra subcommand and formatter
 - [ ] add `formatKeyInfo(*KeyInfoData) string` function for human-readable output

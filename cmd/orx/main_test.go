@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -482,6 +483,171 @@ func TestMergeDisabledModels_EmptySelected(t *testing.T) {
 		if m.Enabled {
 			t.Errorf("expected model %s to be disabled", m.ID)
 		}
+	}
+}
+
+//nolint:cyclop // integration test with multiple assertions
+func newKeyInfoJSON(label string, usage, daily, weekly, monthly float64, limit, remaining *float64) string {
+	limitStr := "null"
+	remainingStr := "null"
+	if limit != nil {
+		limitStr = fmt.Sprintf("%.2f", *limit)
+	}
+	if remaining != nil {
+		remainingStr = fmt.Sprintf("%.2f", *remaining)
+	}
+	return fmt.Sprintf(`{"data":{"label":%q,"usage":%.2f,"usage_daily":%.2f,"usage_weekly":%.2f,"usage_monthly":%.2f,"limit":%s,"limit_remaining":%s,"is_free_tier":false}}`,
+		label, usage, daily, weekly, monthly, limitStr, remainingStr)
+}
+
+func TestUsageCmd_MissingToken(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "")
+
+	cmd := newRootCmd()
+	stdout := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetArgs([]string{"usage"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for missing token")
+	}
+	if !errors.Is(err, ErrTokenRequired) {
+		t.Errorf("expected ErrTokenRequired, got: %v", err)
+	}
+}
+
+func TestUsageCmd_Success(t *testing.T) {
+	t.Parallel()
+
+	usage := 2.5
+	daily := 0.3
+	weekly := 1.2
+	monthly := 2.5
+	limit := 10.0
+	remaining := 7.5
+	body := newKeyInfoJSON("my-key", usage, daily, weekly, monthly, &limit, &remaining)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/key" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+
+	cmd := newRootCmd()
+	stdout := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetArgs([]string{"usage", "--token", "test-token", "--base-url", server.URL})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "my-key") {
+		t.Errorf("output should contain label 'my-key', got:\n%s", out)
+	}
+	if !strings.Contains(out, "$2.50") {
+		t.Errorf("output should contain total usage $2.50, got:\n%s", out)
+	}
+	if !strings.Contains(out, "$0.30") {
+		t.Errorf("output should contain daily $0.30, got:\n%s", out)
+	}
+	if !strings.Contains(out, "$1.20") {
+		t.Errorf("output should contain weekly $1.20, got:\n%s", out)
+	}
+}
+
+func TestUsageCmd_APIError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"usage", "--token", "bad-token", "--base-url", server.URL})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for API error")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("expected 401 in error, got: %v", err)
+	}
+}
+
+func TestUsageCmd_WithLimit(t *testing.T) {
+	t.Parallel()
+
+	limit := 10.0
+	remaining := 7.5
+	body := newKeyInfoJSON("key-with-limit", 2.5, 0.3, 1.2, 2.5, &limit, &remaining)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+
+	cmd := newRootCmd()
+	stdout := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetArgs([]string{"usage", "--token", "test-token", "--base-url", server.URL})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Limit") {
+		t.Errorf("output should contain 'Limit', got:\n%s", out)
+	}
+	if !strings.Contains(out, "$10.00") {
+		t.Errorf("output should contain '$10.00', got:\n%s", out)
+	}
+	if !strings.Contains(out, "Remaining") {
+		t.Errorf("output should contain 'Remaining', got:\n%s", out)
+	}
+	if !strings.Contains(out, "$7.50") {
+		t.Errorf("output should contain '$7.50', got:\n%s", out)
+	}
+}
+
+func TestUsageCmd_NoLimit(t *testing.T) {
+	t.Parallel()
+
+	body := newKeyInfoJSON("free-key", 0.0, 0.0, 0.0, 0.0, nil, nil)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+
+	cmd := newRootCmd()
+	stdout := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetArgs([]string{"usage", "--token", "test-token", "--base-url", server.URL})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := stdout.String()
+	if strings.Contains(out, "Limit:") {
+		t.Errorf("output should not contain 'Limit:' when no limit set, got:\n%s", out)
+	}
+	if strings.Contains(out, "Remaining:") {
+		t.Errorf("output should not contain 'Remaining:' when no limit set, got:\n%s", out)
 	}
 }
 
