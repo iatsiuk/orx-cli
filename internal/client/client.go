@@ -54,7 +54,7 @@ type Option func(*Client)
 
 func WithBaseURL(url string) Option {
 	return func(c *Client) {
-		c.baseURL = url
+		c.baseURL = strings.TrimRight(url, "/")
 	}
 }
 

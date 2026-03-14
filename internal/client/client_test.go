@@ -1017,7 +1017,10 @@ func TestKeyInfo_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(5 * time.Second)
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
 	})
 
 	c := New("token", false, nil, WithBaseURL(server.URL))

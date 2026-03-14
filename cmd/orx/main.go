@@ -75,7 +75,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
 	rootCmd.Flags().StringVarP(&opts.configPath, "config", "c", "", "config file (default: ~/.config/orx.json)")
-	rootCmd.Flags().IntVarP(&opts.timeout, "timeout", "t", 600, "global timeout in seconds")
+	rootCmd.PersistentFlags().IntVarP(&opts.timeout, "timeout", "t", 600, "global timeout in seconds")
 	rootCmd.PersistentFlags().StringVar(&opts.token, "token", "", "OpenRouter API key (default: $OPENROUTER_API_KEY)")
 	rootCmd.Flags().StringVarP(&opts.promptFile, "prompt-file", "p", "", "read prompt from file")
 	rootCmd.PersistentFlags().BoolVar(&opts.verbose, "verbose", false, "dump HTTP request/response")
