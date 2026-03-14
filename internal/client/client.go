@@ -37,7 +37,7 @@ var retryableAPIPatterns = []string{
 }
 
 const (
-	defaultBaseURL = "https://openrouter.ai/api/v1/chat/completions"
+	defaultBaseURL = "https://openrouter.ai/api/v1"
 	maxRetries     = 3
 	retryDelay     = 5 * time.Second
 )
@@ -163,10 +163,9 @@ type KeyInfoData struct {
 	IsFreeTier         bool     `json:"is_free_tier"`
 }
 
-// keyInfoURL derives the /api/v1/key endpoint URL from baseURL.
+// keyInfoURL returns the /key endpoint URL.
 func (c *Client) keyInfoURL() string {
-	base := strings.TrimSuffix(c.baseURL, "/chat/completions")
-	return base + "/key"
+	return c.baseURL + "/key"
 }
 
 // KeyInfo fetches API key usage info from the /api/v1/key endpoint.
@@ -358,7 +357,7 @@ func (c *Client) buildHTTPRequest(ctx context.Context, name string, req *Request
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}

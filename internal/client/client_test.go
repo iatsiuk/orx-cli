@@ -911,7 +911,7 @@ func TestKeyInfo_Success(t *testing.T) {
 		})
 	})
 
-	c := New("test-token", false, nil, WithBaseURL(server.URL+"/chat/completions"))
+	c := New("test-token", false, nil, WithBaseURL(server.URL))
 	resp, err := c.KeyInfo(context.Background())
 
 	if err != nil {
@@ -954,7 +954,7 @@ func TestKeyInfo_Unauthorized(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":"invalid api key"}`))
 	})
 
-	c := New("bad-token", false, nil, WithBaseURL(server.URL+"/chat/completions"))
+	c := New("bad-token", false, nil, WithBaseURL(server.URL))
 	resp, err := c.KeyInfo(context.Background())
 
 	if err == nil {
@@ -976,7 +976,7 @@ func TestKeyInfo_InvalidJSON(t *testing.T) {
 		_, _ = w.Write([]byte("not valid json {{{"))
 	})
 
-	c := New("token", false, nil, WithBaseURL(server.URL+"/chat/completions"))
+	c := New("token", false, nil, WithBaseURL(server.URL))
 	resp, err := c.KeyInfo(context.Background())
 
 	if err == nil {
@@ -997,7 +997,7 @@ func TestKeyInfo_Verbose(t *testing.T) {
 	})
 
 	var out strings.Builder
-	c := New("token", true, &out, WithBaseURL(server.URL+"/chat/completions"))
+	c := New("token", true, &out, WithBaseURL(server.URL))
 	_, err := c.KeyInfo(context.Background())
 
 	if err != nil {
@@ -1020,7 +1020,7 @@ func TestKeyInfo_ContextCancellation(t *testing.T) {
 		time.Sleep(5 * time.Second)
 	})
 
-	c := New("token", false, nil, WithBaseURL(server.URL+"/chat/completions"))
+	c := New("token", false, nil, WithBaseURL(server.URL))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {

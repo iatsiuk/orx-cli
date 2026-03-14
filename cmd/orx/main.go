@@ -346,6 +346,9 @@ func runUsage(cmd *cobra.Command, opts *options) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(opts.timeout)*time.Second)
+	defer cancel()
+
 	var verboseOut io.Writer
 	if opts.verbose {
 		verboseOut = cmd.ErrOrStderr()
