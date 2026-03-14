@@ -71,10 +71,10 @@
 - [x] run tests - must pass (they will fail until Task 4)
 
 ### Task 4: Implement `usage` cobra subcommand and formatter
-- [ ] add `formatKeyInfo(*KeyInfoData) string` function for human-readable output
-- [ ] register `usage` subcommand in `newRootCmd()` with `RunE` handler
-- [ ] handler: validate token, create client, call `KeyInfo()`, format and print
-- [ ] run tests - all Task 3 tests must pass
+- [x] add `formatKeyInfo(*KeyInfoData) string` function for human-readable output
+- [x] register `usage` subcommand in `newRootCmd()` with `RunE` handler
+- [x] handler: validate token, create client, call `KeyInfo()`, format and print
+- [x] run tests - all Task 3 tests must pass
 
 ### Task 5: Verify acceptance criteria
 - [ ] verify all requirements from Overview are implemented
