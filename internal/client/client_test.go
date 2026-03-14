@@ -888,6 +888,11 @@ func TestKeyInfo_Success(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
+		if r.URL.Path != "/key" {
+			t.Errorf("expected path /key, got %s", r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
 		if r.Header.Get("Authorization") != "Bearer test-token" {
 			t.Error("missing or invalid authorization header")
 		}

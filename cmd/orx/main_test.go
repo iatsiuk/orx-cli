@@ -486,7 +486,6 @@ func TestMergeDisabledModels_EmptySelected(t *testing.T) {
 	}
 }
 
-//nolint:cyclop // integration test with multiple assertions
 func newKeyInfoJSON(label string, usage, daily, weekly, monthly float64, limit, remaining *float64) string {
 	limitStr := "null"
 	remainingStr := "null"
@@ -561,6 +560,12 @@ func TestUsageCmd_Success(t *testing.T) {
 	if !strings.Contains(out, "$1.20") {
 		t.Errorf("output should contain weekly $1.20, got:\n%s", out)
 	}
+	if !strings.Contains(out, "Tier:") {
+		t.Errorf("output should contain 'Tier:', got:\n%s", out)
+	}
+	if !strings.Contains(out, "paid") {
+		t.Errorf("output should contain 'paid', got:\n%s", out)
+	}
 }
 
 func TestUsageCmd_APIError(t *testing.T) {
@@ -607,14 +612,14 @@ func TestUsageCmd_WithLimit(t *testing.T) {
 	}
 
 	out := stdout.String()
-	if !strings.Contains(out, "Limit") {
-		t.Errorf("output should contain 'Limit', got:\n%s", out)
+	if !strings.Contains(out, "Limit:") {
+		t.Errorf("output should contain 'Limit:', got:\n%s", out)
 	}
 	if !strings.Contains(out, "$10.00") {
 		t.Errorf("output should contain '$10.00', got:\n%s", out)
 	}
-	if !strings.Contains(out, "Remaining") {
-		t.Errorf("output should contain 'Remaining', got:\n%s", out)
+	if !strings.Contains(out, "Remaining:") {
+		t.Errorf("output should contain 'Remaining:', got:\n%s", out)
 	}
 	if !strings.Contains(out, "$7.50") {
 		t.Errorf("output should contain '$7.50', got:\n%s", out)
@@ -648,6 +653,24 @@ func TestUsageCmd_NoLimit(t *testing.T) {
 	}
 	if strings.Contains(out, "Remaining:") {
 		t.Errorf("output should not contain 'Remaining:' when no limit set, got:\n%s", out)
+	}
+}
+
+func TestFormatKeyInfo_FreeTier(t *testing.T) {
+	t.Parallel()
+
+	d := &client.KeyInfoData{
+		Label:      "free-key",
+		IsFreeTier: true,
+		Usage:      0.0,
+	}
+
+	out := formatKeyInfo(d)
+	if !strings.Contains(out, "free") {
+		t.Errorf("output should contain 'free' for free tier, got:\n%s", out)
+	}
+	if strings.Contains(out, "paid") {
+		t.Errorf("output should not contain 'paid' for free tier, got:\n%s", out)
 	}
 }
 
