@@ -522,7 +522,7 @@ func TestUsageCmd_Success(t *testing.T) {
 	usage := 2.5
 	daily := 0.3
 	weekly := 1.2
-	monthly := 2.5
+	monthly := 1.8
 	limit := 10.0
 	remaining := 7.5
 	body := newKeyInfoJSON("my-key", usage, daily, weekly, monthly, &limit, &remaining)
@@ -559,6 +559,9 @@ func TestUsageCmd_Success(t *testing.T) {
 	}
 	if !strings.Contains(out, "$1.20") {
 		t.Errorf("output should contain weekly $1.20, got:\n%s", out)
+	}
+	if !strings.Contains(out, "$1.80") {
+		t.Errorf("output should contain monthly $1.80, got:\n%s", out)
 	}
 	if !strings.Contains(out, "Tier:") {
 		t.Errorf("output should contain 'Tier:', got:\n%s", out)

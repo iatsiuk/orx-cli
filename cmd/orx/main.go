@@ -343,10 +343,8 @@ func runUsage(cmd *cobra.Command, opts *options) error {
 		return ErrTokenRequired
 	}
 
-	ctx := cmd.Context()
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	var verboseOut io.Writer
 	if opts.verbose {
