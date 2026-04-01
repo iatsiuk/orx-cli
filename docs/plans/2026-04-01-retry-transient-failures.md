@@ -38,9 +38,9 @@
 - [x] run tests - новые тесты должны FAIL (red phase)
 
 ### Task 2: Implement retry for JSON unmarshal errors
-- [ ] в `parseResponse()` обернуть unmarshal error в `retryableError` вместо обычного `fmt.Errorf`
-- [ ] обновить существующий `TestExecute_InvalidJSONResponse` если нужно (теперь ожидается retry exhaustion вместо immediate fail)
-- [ ] run tests - все тесты должны PASS (green phase)
+- [x] в `parseResponse()` обернуть unmarshal error в `retryableError` вместо обычного `fmt.Errorf`
+- [x] обновить существующий `TestExecute_InvalidJSONResponse` если нужно (теперь ожидается retry exhaustion вместо immediate fail)
+- [x] run tests - все тесты должны PASS (green phase)
 
 ### Task 3: Add retry test for empty responses
 - [ ] write test `TestExecute_RetryOnEmptyChoices`: mock-сервер первые 2 раза отдает пустой choices, 3-й раз - валидный. Проверить status == "success" и attempts == 3

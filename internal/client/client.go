@@ -398,7 +398,7 @@ func (c *Client) handleResponse(name string, resp *http.Response) (*Response, er
 func (c *Client) parseResponse(body []byte) (*Response, error) {
 	var result Response
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("unmarshal response: %w", err)
+		return nil, &retryableError{statusCode: 0, body: fmt.Sprintf("unmarshal response: %s", err.Error())}
 	}
 
 	if result.Error != nil {
