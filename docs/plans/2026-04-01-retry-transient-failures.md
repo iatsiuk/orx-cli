@@ -33,9 +33,9 @@
 ## Implementation Steps
 
 ### Task 1: Add retry test for JSON unmarshal errors
-- [ ] write test `TestExecute_RetryOnUnmarshalError`: mock-сервер первые 2 раза отдает truncated JSON, 3-й раз - валидный ответ. Проверить что result.Status == "success" и attempts == 3
-- [ ] write test `TestExecute_RetryOnUnmarshalError_Exhausted`: mock-сервер всегда отдает truncated JSON. Проверить status == "error", error содержит "unmarshal", attempts == 3
-- [ ] run tests - новые тесты должны FAIL (red phase)
+- [x] write test `TestExecute_RetryOnUnmarshalError`: mock-сервер первые 2 раза отдает truncated JSON, 3-й раз - валидный ответ. Проверить что result.Status == "success" и attempts == 3
+- [x] write test `TestExecute_RetryOnUnmarshalError_Exhausted`: mock-сервер всегда отдает truncated JSON. Проверить status == "error", error содержит "unmarshal", attempts == 3
+- [x] run tests - новые тесты должны FAIL (red phase)
 
 ### Task 2: Implement retry for JSON unmarshal errors
 - [ ] в `parseResponse()` обернуть unmarshal error в `retryableError` вместо обычного `fmt.Errorf`

@@ -1118,3 +1118,65 @@ func TestIsRetryable_StreamError(t *testing.T) {
 		})
 	}
 }
+
+func TestExecute_RetryOnUnmarshalError(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		n := attempts.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if n < 3 {
+			// truncated JSON to simulate provider aborting the response
+			_, _ = w.Write([]byte(`{"id":"x","choices":[{"message":{"content":"hi`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(Response{
+			Choices: []Choice{{Message: ChoiceMessage{Content: "ok"}}},
+		})
+	})
+
+	c := New("token", false, nil, WithBaseURL(server.URL))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
+
+	if result.Status != "success" {
+		t.Errorf("expected success after retry, got %s: %s", result.Status, result.Error)
+	}
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts.Load())
+	}
+}
+
+func TestExecute_RetryOnUnmarshalError_Exhausted(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"x","choices":[{"message":{"content":"hi`))
+	})
+
+	c := New("token", false, nil, WithBaseURL(server.URL))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
+
+	if result.Status != "error" {
+		t.Errorf("expected error after exhaustion, got %s", result.Status)
+	}
+	if !strings.Contains(result.Error, "unmarshal") {
+		t.Errorf("expected unmarshal error, got %q", result.Error)
+	}
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts.Load())
+	}
+}
