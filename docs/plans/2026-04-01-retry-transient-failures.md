@@ -48,9 +48,9 @@
 - [x] run tests - новые тесты должны FAIL (red phase)
 
 ### Task 4: Implement retry for empty responses
-- [ ] в `parseResponse()` обернуть "no choices" error в `retryableError`
-- [ ] обновить существующий `TestExecute_EmptyChoices` если нужно (теперь ожидается retry exhaustion)
-- [ ] run tests - все тесты должны PASS (green phase)
+- [x] в `parseResponse()` обернуть "no choices" error в `retryableError`
+- [x] обновить существующий `TestExecute_EmptyChoices` если нужно (теперь ожидается retry exhaustion)
+- [x] run tests - все тесты должны PASS (green phase)
 
 ### Task 5: Verify acceptance criteria
 - [ ] verify: truncated JSON ретраится до 3 раз

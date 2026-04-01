@@ -409,7 +409,7 @@ func (c *Client) parseResponse(body []byte) (*Response, error) {
 	}
 
 	if len(result.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in response")
+		return nil, &retryableError{statusCode: 0, body: "no choices in response"}
 	}
 
 	return &result, nil
