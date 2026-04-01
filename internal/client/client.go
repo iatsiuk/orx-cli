@@ -37,9 +37,9 @@ var retryableAPIPatterns = []string{
 }
 
 const (
-	defaultBaseURL = "https://openrouter.ai/api/v1"
-	maxRetries     = 3
-	retryDelay     = 5 * time.Second
+	defaultBaseURL    = "https://openrouter.ai/api/v1"
+	maxRetries        = 3
+	defaultRetryDelay = 5 * time.Second
 )
 
 type Client struct {
@@ -48,6 +48,7 @@ type Client struct {
 	verbose    bool
 	output     io.Writer
 	baseURL    string
+	retryDelay time.Duration
 }
 
 type Option func(*Client)
@@ -58,6 +59,12 @@ func WithBaseURL(url string) Option {
 	}
 }
 
+func WithRetryDelay(d time.Duration) Option {
+	return func(c *Client) {
+		c.retryDelay = d
+	}
+}
+
 func New(token string, verbose bool, output io.Writer, opts ...Option) *Client {
 	c := &Client{
 		httpClient: &http.Client{},
@@ -65,6 +72,7 @@ func New(token string, verbose bool, output io.Writer, opts ...Option) *Client {
 		verbose:    verbose,
 		output:     output,
 		baseURL:    defaultBaseURL,
+		retryDelay: defaultRetryDelay,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -240,7 +248,7 @@ func (c *Client) Execute(ctx context.Context, model *config.Model, systemPrompt,
 				result.Error = ctx.Err().Error()
 				result.DurationMs = time.Since(start).Milliseconds()
 				return result
-			case <-time.After(retryDelay):
+			case <-time.After(c.retryDelay):
 			}
 		}
 
@@ -398,7 +406,7 @@ func (c *Client) handleResponse(name string, resp *http.Response) (*Response, er
 func (c *Client) parseResponse(body []byte) (*Response, error) {
 	var result Response
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("unmarshal response: %w", err)
+		return nil, &retryableError{statusCode: 0, body: fmt.Sprintf("unmarshal response: %s", err.Error())}
 	}
 
 	if result.Error != nil {
@@ -409,7 +417,7 @@ func (c *Client) parseResponse(body []byte) (*Response, error) {
 	}
 
 	if len(result.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in response")
+		return nil, &retryableError{statusCode: 0, body: "no choices in response"}
 	}
 
 	return &result, nil
@@ -421,6 +429,9 @@ type retryableError struct {
 }
 
 func (e *retryableError) Error() string {
+	if e.statusCode == 0 {
+		return e.body
+	}
 	return fmt.Sprintf("retryable error %d: %s", e.statusCode, e.body)
 }
 

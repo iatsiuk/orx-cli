@@ -33,31 +33,31 @@
 ## Implementation Steps
 
 ### Task 1: Add retry test for JSON unmarshal errors
-- [ ] write test `TestExecute_RetryOnUnmarshalError`: mock-сервер первые 2 раза отдает truncated JSON, 3-й раз - валидный ответ. Проверить что result.Status == "success" и attempts == 3
-- [ ] write test `TestExecute_RetryOnUnmarshalError_Exhausted`: mock-сервер всегда отдает truncated JSON. Проверить status == "error", error содержит "unmarshal", attempts == 3
-- [ ] run tests - новые тесты должны FAIL (red phase)
+- [x] write test `TestExecute_RetryOnUnmarshalError`: mock-сервер первые 2 раза отдает truncated JSON, 3-й раз - валидный ответ. Проверить что result.Status == "success" и attempts == 3
+- [x] write test `TestExecute_RetryOnUnmarshalError_Exhausted`: mock-сервер всегда отдает truncated JSON. Проверить status == "error", error содержит "unmarshal", attempts == 3
+- [x] run tests - новые тесты должны FAIL (red phase)
 
 ### Task 2: Implement retry for JSON unmarshal errors
-- [ ] в `parseResponse()` обернуть unmarshal error в `retryableError` вместо обычного `fmt.Errorf`
-- [ ] обновить существующий `TestExecute_InvalidJSONResponse` если нужно (теперь ожидается retry exhaustion вместо immediate fail)
-- [ ] run tests - все тесты должны PASS (green phase)
+- [x] в `parseResponse()` обернуть unmarshal error в `retryableError` вместо обычного `fmt.Errorf`
+- [x] обновить существующий `TestExecute_InvalidJSONResponse` если нужно (теперь ожидается retry exhaustion вместо immediate fail)
+- [x] run tests - все тесты должны PASS (green phase)
 
 ### Task 3: Add retry test for empty responses
-- [ ] write test `TestExecute_RetryOnEmptyChoices`: mock-сервер первые 2 раза отдает пустой choices, 3-й раз - валидный. Проверить status == "success" и attempts == 3
-- [ ] write test `TestExecute_RetryOnEmptyChoices_Exhausted`: mock-сервер всегда отдает пустой choices. Проверить status == "error", error содержит "no choices", attempts == 3
-- [ ] run tests - новые тесты должны FAIL (red phase)
+- [x] write test `TestExecute_RetryOnEmptyChoices`: mock-сервер первые 2 раза отдает пустой choices, 3-й раз - валидный. Проверить status == "success" и attempts == 3
+- [x] write test `TestExecute_RetryOnEmptyChoices_Exhausted`: mock-сервер всегда отдает пустой choices. Проверить status == "error", error содержит "no choices", attempts == 3
+- [x] run tests - новые тесты должны FAIL (red phase)
 
 ### Task 4: Implement retry for empty responses
-- [ ] в `parseResponse()` обернуть "no choices" error в `retryableError`
-- [ ] обновить существующий `TestExecute_EmptyChoices` если нужно (теперь ожидается retry exhaustion)
-- [ ] run tests - все тесты должны PASS (green phase)
+- [x] в `parseResponse()` обернуть "no choices" error в `retryableError`
+- [x] обновить существующий `TestExecute_EmptyChoices` если нужно (теперь ожидается retry exhaustion)
+- [x] run tests - все тесты должны PASS (green phase)
 
 ### Task 5: Verify acceptance criteria
-- [ ] verify: truncated JSON ретраится до 3 раз
-- [ ] verify: empty choices ретраится до 3 раз
-- [ ] verify: оба типа ошибок при успешном retry возвращают success
-- [ ] run full test suite (`go test ./...`)
-- [ ] run linter (`golangci-lint run` или проектный линтер)
+- [x] verify: truncated JSON ретраится до 3 раз
+- [x] verify: empty choices ретраится до 3 раз
+- [x] verify: оба типа ошибок при успешном retry возвращают success
+- [x] run full test suite (`go test ./...`)
+- [x] run linter (`golangci-lint run` или проектный линтер)
 
 ## Technical Details
 - `parseResponse()` строки 400-401: заменить `fmt.Errorf("unmarshal response: %w", err)` на `&retryableError{statusCode: 0, body: ...}`
