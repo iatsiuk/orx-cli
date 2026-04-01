@@ -53,11 +53,11 @@
 - [x] run tests - все тесты должны PASS (green phase)
 
 ### Task 5: Verify acceptance criteria
-- [ ] verify: truncated JSON ретраится до 3 раз
-- [ ] verify: empty choices ретраится до 3 раз
-- [ ] verify: оба типа ошибок при успешном retry возвращают success
-- [ ] run full test suite (`go test ./...`)
-- [ ] run linter (`golangci-lint run` или проектный линтер)
+- [x] verify: truncated JSON ретраится до 3 раз
+- [x] verify: empty choices ретраится до 3 раз
+- [x] verify: оба типа ошибок при успешном retry возвращают success
+- [x] run full test suite (`go test ./...`)
+- [x] run linter (`golangci-lint run` или проектный линтер)
 
 ## Technical Details
 - `parseResponse()` строки 400-401: заменить `fmt.Errorf("unmarshal response: %w", err)` на `&retryableError{statusCode: 0, body: ...}`
