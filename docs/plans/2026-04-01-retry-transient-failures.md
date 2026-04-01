@@ -43,9 +43,9 @@
 - [x] run tests - все тесты должны PASS (green phase)
 
 ### Task 3: Add retry test for empty responses
-- [ ] write test `TestExecute_RetryOnEmptyChoices`: mock-сервер первые 2 раза отдает пустой choices, 3-й раз - валидный. Проверить status == "success" и attempts == 3
-- [ ] write test `TestExecute_RetryOnEmptyChoices_Exhausted`: mock-сервер всегда отдает пустой choices. Проверить status == "error", error содержит "no choices", attempts == 3
-- [ ] run tests - новые тесты должны FAIL (red phase)
+- [x] write test `TestExecute_RetryOnEmptyChoices`: mock-сервер первые 2 раза отдает пустой choices, 3-й раз - валидный. Проверить status == "success" и attempts == 3
+- [x] write test `TestExecute_RetryOnEmptyChoices_Exhausted`: mock-сервер всегда отдает пустой choices. Проверить status == "error", error содержит "no choices", attempts == 3
+- [x] run tests - новые тесты должны FAIL (red phase)
 
 ### Task 4: Implement retry for empty responses
 - [ ] в `parseResponse()` обернуть "no choices" error в `retryableError`
