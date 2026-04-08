@@ -71,13 +71,13 @@ echo "hello" | orx -m anthropic/claude-sonnet@low -m openai/gpt-4o
 - [x] run tests - must pass before next task
 
 ### Task 2: Wire -m flag into root command and run()
-- [ ] add `models []string` field to `options` struct
-- [ ] register `-m, --model` flag via `StringArrayVarP` on rootCmd
-- [ ] modify `run()`: if `opts.models` non-empty and `opts.configPath` non-empty, return mutual exclusion error
-- [ ] modify `run()`: if `opts.models` non-empty, call `buildCLIModels` instead of `config.Load`
-- [ ] write test: `-m` and `-c` together returns error
-- [ ] write test: `-m` with valid model builds config and proceeds (use httptest server)
-- [ ] run tests - must pass before next task
+- [x] add `models []string` field to `options` struct
+- [x] register `-m, --model` flag via `StringArrayVarP` on rootCmd
+- [x] modify `run()`: if `opts.models` non-empty and `opts.configPath` non-empty, return mutual exclusion error
+- [x] modify `run()`: if `opts.models` non-empty, call `buildCLIModels` instead of `config.Load`
+- [x] write test: `-m` and `-c` together returns error
+- [x] write test: `-m` with valid model builds config and proceeds (use httptest server)
+- [x] run tests - must pass before next task
 
 ### Task 3: Verify acceptance criteria
 - [ ] verify: `orx -m model` works without config file

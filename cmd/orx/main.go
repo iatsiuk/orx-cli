@@ -26,11 +26,13 @@ var version = "dev"
 var (
 	ErrTokenRequired = errors.New("API token required: use --token or set OPENROUTER_API_KEY")
 	ErrEmptyPrompt   = errors.New("empty prompt")
+	ErrFlagConflict  = errors.New("-m/--model and -c/--config are mutually exclusive")
 	errInitConfig    = errors.New("init config error")
 )
 
 type options struct {
 	configPath   string
+	models       []string
 	timeout      int
 	token        string
 	promptFile   string
@@ -75,6 +77,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
 	rootCmd.Flags().StringVarP(&opts.configPath, "config", "c", "", "config file (default: ~/.config/orx.json)")
+	rootCmd.Flags().StringArrayVarP(&opts.models, "model", "m", nil, "model ID with optional reasoning effort (e.g. provider/model@effort)")
 	rootCmd.PersistentFlags().IntVarP(&opts.timeout, "timeout", "t", 600, "global timeout in seconds")
 	rootCmd.PersistentFlags().StringVar(&opts.token, "token", "", "OpenRouter API key (default: $OPENROUTER_API_KEY)")
 	rootCmd.Flags().StringVarP(&opts.promptFile, "prompt-file", "p", "", "read prompt from file")
@@ -108,6 +111,25 @@ func newRootCmd() *cobra.Command {
 	return rootCmd
 }
 
+func resolveConfig(cmd *cobra.Command, opts *options) (*config.Config, error) {
+	if len(opts.models) > 0 && opts.configPath != "" {
+		return nil, ErrFlagConflict
+	}
+	if len(opts.models) > 0 {
+		models, err := buildCLIModels(opts.models)
+		if err != nil {
+			return nil, err
+		}
+		return &config.Config{Models: models}, nil
+	}
+	cfg, err := config.Load(opts.configPath)
+	if err != nil {
+		_ = cmd.Usage()
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+	return cfg, nil
+}
+
 func run(cmd *cobra.Command, opts *options) error {
 	apiToken := getAPIToken(opts.token)
 	if apiToken == "" {
@@ -115,10 +137,9 @@ func run(cmd *cobra.Command, opts *options) error {
 		return ErrTokenRequired
 	}
 
-	cfg, err := config.Load(opts.configPath)
+	cfg, err := resolveConfig(cmd, opts)
 	if err != nil {
-		_ = cmd.Usage()
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
 
 	prompt, err := readPrompt(os.Stdin, opts.promptFile)

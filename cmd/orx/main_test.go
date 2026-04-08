@@ -776,6 +776,79 @@ func TestParseModelFlag(t *testing.T) {
 	}
 }
 
+func TestRootCmd_ModelAndConfigMutuallyExclusive(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "test-token")
+
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "orx.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"models":[{"name":"t","model":"m","enabled":true}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	promptPath := filepath.Join(tmpDir, "prompt.txt")
+	if err := os.WriteFile(promptPath, []byte("test prompt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"-m", "anthropic/claude-sonnet", "-c", cfgPath, "-p", promptPath})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for -m and -c together")
+	}
+	if !errors.Is(err, ErrFlagConflict) {
+		t.Errorf("expected ErrFlagConflict, got: %v", err)
+	}
+}
+
+func TestRootCmd_ModelFlagBuildsConfigAndProceeds(t *testing.T) {
+	t.Parallel()
+
+	var requestedModel string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req client.Request
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			requestedModel = req.Model
+		}
+		cost := 0.001
+		_ = json.NewEncoder(w).Encode(client.Response{
+			ID: "gen-123",
+			Choices: []client.Choice{{
+				Message: client.ChoiceMessage{Content: "response"},
+			}},
+			Usage: &client.Usage{
+				PromptTokens:     10,
+				CompletionTokens: 20,
+				TotalTokens:      30,
+				Cost:             &cost,
+			},
+		})
+	}))
+	defer server.Close()
+
+	tmpDir := t.TempDir()
+	promptPath := filepath.Join(tmpDir, "prompt.txt")
+	if err := os.WriteFile(promptPath, []byte("test prompt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{
+		"-m", "anthropic/claude-sonnet@medium",
+		"--token", "test-api-key",
+		"--base-url", server.URL,
+		"-p", promptPath,
+	})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if requestedModel != "anthropic/claude-sonnet" {
+		t.Errorf("expected model 'anthropic/claude-sonnet' sent to API, got %q", requestedModel)
+	}
+}
+
 func TestBuildCLIModels(t *testing.T) {
 	t.Parallel()
 
