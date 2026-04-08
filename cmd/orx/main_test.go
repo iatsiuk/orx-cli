@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"orx/internal/client"
@@ -717,6 +718,11 @@ func TestParseModelFlag(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "empty effort after @",
+			input:   "anthropic/claude-sonnet@",
+			wantErr: true,
+		},
+		{
 			name:      "no slash in model ID",
 			input:     "gpt-4o",
 			wantModel: "gpt-4o",
@@ -804,11 +810,20 @@ func TestRootCmd_ModelAndConfigMutuallyExclusive(t *testing.T) {
 func TestRootCmd_ModelFlagBuildsConfigAndProceeds(t *testing.T) {
 	t.Parallel()
 
-	var requestedModel string
+	var (
+		mu              sync.Mutex
+		requestedModel  string
+		requestedEffort string
+	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req client.Request
 		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			mu.Lock()
 			requestedModel = req.Model
+			if req.Reasoning != nil {
+				requestedEffort = req.Reasoning.Effort
+			}
+			mu.Unlock()
 		}
 		cost := 0.001
 		_ = json.NewEncoder(w).Encode(client.Response{
@@ -844,8 +859,15 @@ func TestRootCmd_ModelFlagBuildsConfigAndProceeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if requestedModel != "anthropic/claude-sonnet" {
-		t.Errorf("expected model 'anthropic/claude-sonnet' sent to API, got %q", requestedModel)
+	mu.Lock()
+	gotModel := requestedModel
+	gotEffort := requestedEffort
+	mu.Unlock()
+	if gotModel != "anthropic/claude-sonnet" {
+		t.Errorf("expected model 'anthropic/claude-sonnet' sent to API, got %q", gotModel)
+	}
+	if gotEffort != "medium" {
+		t.Errorf("expected reasoning effort 'medium' sent to API, got %q", gotEffort)
 	}
 }
 

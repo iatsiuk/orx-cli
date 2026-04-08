@@ -64,6 +64,7 @@ orx usage
 
 Flags:
   -c, --config string        Path to config file (default: ~/.config/orx.json)
+  -m, --model strings        Model ID with optional reasoning effort, e.g. provider/model@effort (can be repeated; mutually exclusive with -c)
   -t, --timeout int          Global timeout in seconds (default: 600)
       --token string         OpenRouter API key (default: $OPENROUTER_API_KEY)
   -s, --system string        System prompt

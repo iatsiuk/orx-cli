@@ -80,13 +80,13 @@ echo "hello" | orx -m anthropic/claude-sonnet@low -m openai/gpt-4o
 - [x] run tests - must pass before next task
 
 ### Task 3: Verify acceptance criteria
-- [ ] verify: `orx -m model` works without config file
-- [ ] verify: `orx -m model@effort` sets reasoning correctly
-- [ ] verify: `orx -m a -m b` passes multiple models to runner
-- [ ] verify: `orx -m a -c config.json` returns error
-- [ ] verify: `orx` without `-m` still requires config (backward compatible)
-- [ ] run full test suite (`go test -race ./...`)
-- [ ] run linter via `make build`
+- [x] verify: `orx -m model` works without config file
+- [x] verify: `orx -m model@effort` sets reasoning correctly
+- [x] verify: `orx -m a -m b` passes multiple models to runner
+- [x] verify: `orx -m a -c config.json` returns error
+- [x] verify: `orx` without `-m` still requires config (backward compatible)
+- [x] run full test suite (`go test -race ./...`)
+- [x] run linter via `make build`
 
 ## Post-Completion
 

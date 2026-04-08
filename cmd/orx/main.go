@@ -131,15 +131,15 @@ func resolveConfig(cmd *cobra.Command, opts *options) (*config.Config, error) {
 }
 
 func run(cmd *cobra.Command, opts *options) error {
+	cfg, err := resolveConfig(cmd, opts)
+	if err != nil {
+		return err
+	}
+
 	apiToken := getAPIToken(opts.token)
 	if apiToken == "" {
 		_ = cmd.Usage()
 		return ErrTokenRequired
-	}
-
-	cfg, err := resolveConfig(cmd, opts)
-	if err != nil {
-		return err
 	}
 
 	prompt, err := readPrompt(os.Stdin, opts.promptFile)
@@ -234,10 +234,6 @@ func appendFileContent(prompt string, opts *options) (string, error) {
 	return prompt, nil
 }
 
-var validReasoningEfforts = map[string]bool{
-	"none": true, "minimal": true, "low": true, "medium": true, "high": true, "xhigh": true,
-}
-
 func parseModelFlag(value string) (config.Model, error) {
 	id, effort, hasEffort := strings.Cut(value, "@")
 	if id == "" {
@@ -256,7 +252,7 @@ func parseModelFlag(value string) (config.Model, error) {
 	}
 
 	if hasEffort {
-		if !validReasoningEfforts[effort] {
+		if !config.ValidReasoningEffort(effort) {
 			return config.Model{}, fmt.Errorf("invalid reasoning effort %q: must be one of none, minimal, low, medium, high, xhigh", effort)
 		}
 		m.Reasoning = &config.ReasoningConfig{Effort: effort}

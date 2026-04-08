@@ -157,18 +157,22 @@ func validateMinInt(name, param string, val *int, lo int) error {
 	return nil
 }
 
+var validReasoningEfforts = map[string]bool{
+	"none": true, "minimal": true, "low": true, "medium": true, "high": true, "xhigh": true,
+}
+
+// ValidReasoningEffort reports whether s is a recognized reasoning effort value.
+func ValidReasoningEffort(s string) bool {
+	return validReasoningEfforts[s]
+}
+
 func validateReasoning(name string, r *ReasoningConfig) error {
 	if r.Effort != "" && r.MaxTokens != nil {
 		return fmt.Errorf("model %q: reasoning.effort and reasoning.max_tokens are mutually exclusive", name)
 	}
 
-	if r.Effort != "" {
-		validEfforts := map[string]bool{
-			"none": true, "minimal": true, "low": true, "medium": true, "high": true, "xhigh": true,
-		}
-		if !validEfforts[r.Effort] {
-			return fmt.Errorf("model %q: reasoning.effort must be 'none', 'minimal', 'low', 'medium', 'high', or 'xhigh'", name)
-		}
+	if r.Effort != "" && !validReasoningEfforts[r.Effort] {
+		return fmt.Errorf("model %q: reasoning.effort must be 'none', 'minimal', 'low', 'medium', 'high', or 'xhigh'", name)
 	}
 
 	if r.Summary != "" {
