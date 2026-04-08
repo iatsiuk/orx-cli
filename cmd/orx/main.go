@@ -213,6 +213,49 @@ func appendFileContent(prompt string, opts *options) (string, error) {
 	return prompt, nil
 }
 
+var validReasoningEfforts = map[string]bool{
+	"none": true, "minimal": true, "low": true, "medium": true, "high": true, "xhigh": true,
+}
+
+func parseModelFlag(value string) (config.Model, error) {
+	id, effort, hasEffort := strings.Cut(value, "@")
+	if id == "" {
+		return config.Model{}, errors.New("model ID must not be empty")
+	}
+
+	name := id
+	if _, after, ok := strings.Cut(id, "/"); ok {
+		name = after
+	}
+
+	m := config.Model{
+		Name:    name,
+		Model:   id,
+		Enabled: true,
+	}
+
+	if hasEffort {
+		if !validReasoningEfforts[effort] {
+			return config.Model{}, fmt.Errorf("invalid reasoning effort %q: must be one of none, minimal, low, medium, high, xhigh", effort)
+		}
+		m.Reasoning = &config.ReasoningConfig{Effort: effort}
+	}
+
+	return m, nil
+}
+
+func buildCLIModels(flags []string) ([]config.Model, error) {
+	models := make([]config.Model, 0, len(flags))
+	for _, f := range flags {
+		m, err := parseModelFlag(f)
+		if err != nil {
+			return nil, fmt.Errorf("invalid model flag %q: %w", f, err)
+		}
+		models = append(models, m)
+	}
+	return models, nil
+}
+
 func readPrompt(stdin io.Reader, promptFile string) (string, error) {
 	if promptFile != "" {
 		return readPromptFromFile(promptFile)

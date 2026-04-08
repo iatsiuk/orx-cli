@@ -677,6 +677,158 @@ func TestFormatKeyInfo_FreeTier(t *testing.T) {
 	}
 }
 
+func TestParseModelFlag(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		input      string
+		wantModel  string
+		wantName   string
+		wantEffort string
+		wantErr    bool
+	}{
+		{
+			name:      "model without effort",
+			input:     "anthropic/claude-sonnet",
+			wantModel: "anthropic/claude-sonnet",
+			wantName:  "claude-sonnet",
+		},
+		{
+			name:       "model with valid effort",
+			input:      "anthropic/claude-sonnet@medium",
+			wantModel:  "anthropic/claude-sonnet",
+			wantName:   "claude-sonnet",
+			wantEffort: "medium",
+		},
+		{
+			name:    "invalid effort",
+			input:   "anthropic/claude-sonnet@super",
+			wantErr: true,
+		},
+		{
+			name:    "empty model ID",
+			input:   "",
+			wantErr: true,
+		},
+		{
+			name:    "empty model ID with effort",
+			input:   "@high",
+			wantErr: true,
+		},
+		{
+			name:      "no slash in model ID",
+			input:     "gpt-4o",
+			wantModel: "gpt-4o",
+			wantName:  "gpt-4o",
+		},
+		{
+			name:       "no slash with effort",
+			input:      "gpt-4o@low",
+			wantModel:  "gpt-4o",
+			wantName:   "gpt-4o",
+			wantEffort: "low",
+		},
+		{
+			name:       "effort none",
+			input:      "openai/gpt-4o@none",
+			wantModel:  "openai/gpt-4o",
+			wantName:   "gpt-4o",
+			wantEffort: "none",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			m, err := parseModelFlag(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if m.Model != tc.wantModel {
+				t.Errorf("model: want %q, got %q", tc.wantModel, m.Model)
+			}
+			if m.Name != tc.wantName {
+				t.Errorf("name: want %q, got %q", tc.wantName, m.Name)
+			}
+			if !m.Enabled {
+				t.Error("model should be enabled")
+			}
+			if tc.wantEffort == "" {
+				if m.Reasoning != nil {
+					t.Errorf("expected nil Reasoning, got %+v", m.Reasoning)
+				}
+			} else {
+				if m.Reasoning == nil {
+					t.Fatal("expected Reasoning to be set")
+				}
+				if m.Reasoning.Effort != tc.wantEffort {
+					t.Errorf("effort: want %q, got %q", tc.wantEffort, m.Reasoning.Effort)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildCLIModels(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty slice", func(t *testing.T) {
+		t.Parallel()
+		models, err := buildCLIModels(nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(models) != 0 {
+			t.Errorf("expected empty slice, got %d models", len(models))
+		}
+	})
+
+	t.Run("multiple valid models", func(t *testing.T) {
+		t.Parallel()
+		models, err := buildCLIModels([]string{
+			"anthropic/claude-sonnet",
+			"openai/gpt-4o@high",
+			"deepseek/deepseek-r1@low",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(models) != 3 {
+			t.Fatalf("expected 3 models, got %d", len(models))
+		}
+		if models[0].Model != "anthropic/claude-sonnet" {
+			t.Errorf("first model: got %q", models[0].Model)
+		}
+		if models[1].Reasoning == nil || models[1].Reasoning.Effort != "high" {
+			t.Errorf("second model reasoning: got %+v", models[1].Reasoning)
+		}
+		if models[2].Reasoning == nil || models[2].Reasoning.Effort != "low" {
+			t.Errorf("third model reasoning: got %+v", models[2].Reasoning)
+		}
+	})
+
+	t.Run("one invalid among valid", func(t *testing.T) {
+		t.Parallel()
+		_, err := buildCLIModels([]string{
+			"anthropic/claude-sonnet",
+			"openai/gpt-4o@badefffort",
+		})
+		if err == nil {
+			t.Fatal("expected error for invalid effort")
+		}
+		if !strings.Contains(err.Error(), "badefffort") {
+			t.Errorf("error should mention 'badefffort', got: %v", err)
+		}
+	})
+}
+
 //nolint:cyclop // integration test with multiple assertions
 func TestIntegration_FullFlow(t *testing.T) {
 	t.Parallel()
