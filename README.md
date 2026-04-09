@@ -70,6 +70,7 @@ Flags:
   -s, --system string        System prompt
   -p, --prompt-file string   Read prompt from file instead of stdin
   -f, --file strings         File paths to include (can be repeated)
+      --github-file strings  GitHub file URLs to include (can be repeated)
       --max-file-size string Max size per file (default: "64KB")
       --max-tokens int       Max estimated tokens in files (default: 100000)
       --verbose              Dump HTTP request/response to stderr
@@ -130,6 +131,9 @@ orx --verbose < prompt.txt
 # Include files for context
 echo "Review this code" | orx -f main.go -f config.go
 
+# Include a file from GitHub
+echo "Explain this" | orx --github-file https://github.com/owner/repo/blob/main/main.go
+
 # With custom limits
 orx -f largefile.go --max-file-size 1MB --max-tokens 200000 -p prompt.txt
 ```
@@ -137,6 +141,17 @@ orx -f largefile.go --max-file-size 1MB --max-tokens 200000 -p prompt.txt
 ## File Loading
 
 Include file contents in prompts using `-f`/`--file`. Files are wrapped in delimiters for clear boundaries.
+
+### GitHub Files
+
+Include files directly from GitHub using `--github-file`. Accepts blob and raw URL formats, with or without the `https://` scheme.
+
+```bash
+echo "Review this" | orx --github-file https://github.com/owner/repo/blob/main/main.go
+echo "Compare" | orx -f local.go --github-file github.com/owner/repo/blob/main/remote.go
+```
+
+Requires `GITHUB_TOKEN` environment variable (personal access token or fine-grained PAT). Multiple URLs are fetched in parallel. GitHub files follow the same binary check, size limit (`--max-file-size`), and token limit (`--max-tokens`) rules as local files, and appear in a separate `[GITHUB FILES]` section of the prompt.
 
 ```bash
 echo "Explain this code" | orx -f main.go -f utils.go

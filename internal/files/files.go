@@ -58,7 +58,7 @@ func LoadContent(req Request) (string, error) {
 			continue
 		}
 
-		result.WriteString(formatFile(path, content))
+		result.WriteString(FormatFile(path, content))
 	}
 
 	if len(omitted) > 0 {
@@ -74,7 +74,7 @@ func LoadContent(req Request) (string, error) {
 	return output, nil
 }
 
-func formatFile(path, content string) string {
+func FormatFile(path, content string) string {
 	var b strings.Builder
 	b.WriteString("===== BEGIN FILE =====\n")
 	b.WriteString("path: ")

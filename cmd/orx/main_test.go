@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -993,5 +994,100 @@ func TestIntegration_FullFlow(t *testing.T) {
 
 	if output.TotalCost < 0.001 {
 		t.Errorf("expected total cost >= 0.001, got %f", output.TotalCost)
+	}
+}
+
+func TestAppendGitHubFiles_NoFiles(t *testing.T) {
+	t.Parallel()
+	opts := &options{maxFileSize: "64KB", maxTokens: 100000}
+	got, err := appendGitHubFiles(context.Background(), "hello", 0, opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "hello" {
+		t.Errorf("expected unchanged prompt, got %q", got)
+	}
+}
+
+func TestAppendGitHubFiles_MissingToken(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	opts := &options{
+		githubFiles: []string{"github.com/owner/repo/blob/main/file.go"},
+		maxFileSize: "64KB",
+		maxTokens:   100000,
+	}
+	_, err := appendGitHubFiles(context.Background(), "hello", 0, opts)
+	if !errors.Is(err, errGitHubTokenRequired) {
+		t.Errorf("expected errGitHubTokenRequired, got: %v", err)
+	}
+}
+
+func TestAppendGitHubFiles_InvalidURL(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	opts := &options{
+		githubFiles: []string{"not-a-github-url"},
+		maxFileSize: "64KB",
+		maxTokens:   100000,
+	}
+	_, err := appendGitHubFiles(context.Background(), "hello", 0, opts)
+	if err == nil {
+		t.Fatal("expected error for invalid URL")
+	}
+}
+
+func TestFormatGitHubFiles_Success(t *testing.T) {
+	t.Parallel()
+
+	results := []ghFetchResult{
+		{url: "github.com/owner/repo/blob/main/main.go", content: []byte("package main\n")},
+		{url: "github.com/owner/repo/blob/main/util.go", content: []byte("package main\n\nfunc helper() {}\n")},
+	}
+	got := formatGitHubFiles(results, 1<<20)
+	if !strings.Contains(got, "path: github.com/owner/repo/blob/main/main.go") {
+		t.Error("expected first file path in output")
+	}
+	if !strings.Contains(got, "package main") {
+		t.Error("expected first file content in output")
+	}
+	if !strings.Contains(got, "path: github.com/owner/repo/blob/main/util.go") {
+		t.Error("expected second file path in output")
+	}
+	if strings.Contains(got, "OMITTED") {
+		t.Error("expected no omitted section for valid text files")
+	}
+}
+
+func TestFormatGitHubFiles_BinarySkipped(t *testing.T) {
+	t.Parallel()
+
+	results := []ghFetchResult{
+		{url: "github.com/owner/repo/blob/main/data.bin", content: []byte{0x00, 0x01, 0x02, 0x03}},
+		{url: "github.com/owner/repo/blob/main/main.go", content: []byte("package main\n")},
+	}
+	got := formatGitHubFiles(results, 1<<20)
+	if !strings.Contains(got, "OMITTED") {
+		t.Error("expected omitted section for binary file")
+	}
+	if !strings.Contains(got, "data.bin: binary file") {
+		t.Error("expected binary file in omitted list")
+	}
+	if !strings.Contains(got, "package main") {
+		t.Error("expected text file content still included")
+	}
+}
+
+func TestFormatGitHubFiles_SizeExceeded(t *testing.T) {
+	t.Parallel()
+
+	content := []byte("hello world - this is longer than 10 bytes")
+	results := []ghFetchResult{
+		{url: "github.com/owner/repo/blob/main/big.go", content: content},
+	}
+	got := formatGitHubFiles(results, 10)
+	if !strings.Contains(got, "OMITTED") {
+		t.Error("expected omitted section when all files exceed size limit")
+	}
+	if !strings.Contains(got, "big.go") {
+		t.Error("expected oversized file in omitted list")
 	}
 }

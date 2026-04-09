@@ -346,9 +346,9 @@ path: /empty.txt
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := formatFile(tt.path, tt.content)
+			got := FormatFile(tt.path, tt.content)
 			if got != tt.want {
-				t.Errorf("formatFile() =\n%q\nwant:\n%q", got, tt.want)
+				t.Errorf("FormatFile() =\n%q\nwant:\n%q", got, tt.want)
 			}
 		})
 	}

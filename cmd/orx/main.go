@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 
 	"orx/internal/client"
 	"orx/internal/config"
 	"orx/internal/files"
+	"orx/internal/github"
 	"orx/internal/modelsel"
 	"orx/internal/runner"
 )
@@ -38,6 +40,7 @@ type options struct {
 	promptFile   string
 	verbose      bool
 	files        []string
+	githubFiles  []string
 	maxFileSize  string
 	maxTokens    int
 	systemPrompt string
@@ -84,6 +87,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&opts.verbose, "verbose", false, "dump HTTP request/response")
 	rootCmd.PersistentFlags().StringVar(&opts.baseURL, "base-url", "", "override API base URL")
 	rootCmd.Flags().StringArrayVarP(&opts.files, "file", "f", nil, "file paths to include (can be repeated)")
+	rootCmd.Flags().StringArrayVar(&opts.githubFiles, "github-file", nil, "GitHub file URLs to include (can be repeated)")
 	rootCmd.Flags().StringVar(&opts.maxFileSize, "max-file-size", "64KB", "max size per file (e.g., 64KB, 1MB)")
 	rootCmd.Flags().IntVar(&opts.maxTokens, "max-tokens", 100000, "max estimated tokens in file content")
 	rootCmd.Flags().StringVarP(&opts.systemPrompt, "system", "s", "", "system prompt")
@@ -148,13 +152,20 @@ func run(cmd *cobra.Command, opts *options) error {
 		return fmt.Errorf("read prompt: %w", err)
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	preFileTokens := files.EstimateTokens(prompt)
 	prompt, err = appendFileContent(prompt, opts)
 	if err != nil {
 		return err
 	}
+	localFileTokens := files.EstimateTokens(prompt) - preFileTokens
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+	prompt, err = appendGitHubFiles(ctx, prompt, localFileTokens, opts)
+	if err != nil {
+		return err
+	}
 
 	var verboseOut io.Writer
 	if opts.verbose {
@@ -232,6 +243,106 @@ func appendFileContent(prompt string, opts *options) (string, error) {
 		return prompt + "\n\n[FILES]\n" + fileContent, nil
 	}
 	return prompt, nil
+}
+
+var errGitHubTokenRequired = errors.New("GITHUB_TOKEN env var required for --github-file")
+
+type ghFetchResult struct {
+	url     string
+	content []byte
+}
+
+func appendGitHubFiles(ctx context.Context, prompt string, localFileTokens int, opts *options) (string, error) {
+	if len(opts.githubFiles) == 0 {
+		return prompt, nil
+	}
+
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		return "", errGitHubTokenRequired
+	}
+
+	maxSize, err := files.ParseSize(opts.maxFileSize)
+	if err != nil {
+		return "", fmt.Errorf("invalid --max-file-size: %w", err)
+	}
+
+	fetched, err := fetchGitHubFiles(ctx, opts.githubFiles, token)
+	if err != nil {
+		return "", err
+	}
+
+	fileContent := formatGitHubFiles(fetched, maxSize)
+	if fileContent == "" {
+		return prompt, nil
+	}
+
+	tokens := files.EstimateTokens(fileContent)
+	if tokens+localFileTokens > opts.maxTokens {
+		return "", fmt.Errorf("%w: estimated %d tokens (limit: %d)", files.ErrTokenLimitExceeded, tokens+localFileTokens, opts.maxTokens)
+	}
+
+	return prompt + "\n\n[GITHUB FILES]\n" + fileContent, nil
+}
+
+func fetchGitHubFiles(ctx context.Context, urls []string, token string) ([]ghFetchResult, error) {
+	refs := make([]github.FileRef, len(urls))
+	for i, u := range urls {
+		var err error
+		refs[i], err = github.ParseURL(u)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	results := make([]ghFetchResult, len(refs))
+	eg, egCtx := errgroup.WithContext(ctx)
+	for i, ref := range refs {
+		eg.Go(func() error {
+			data, err := github.FetchFile(egCtx, ref, token)
+			if err != nil {
+				return fmt.Errorf("fetch github file: %w", err)
+			}
+			results[i] = ghFetchResult{url: urls[i], content: data}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func formatGitHubFiles(results []ghFetchResult, maxSize int64) string {
+	var sb strings.Builder
+	var omitted []string
+	for _, r := range results {
+		check := r.content
+		if len(check) > files.BinaryCheckSize {
+			check = check[:files.BinaryCheckSize]
+		}
+		if files.IsBinary(check) {
+			omitted = append(omitted, r.url+": binary file")
+			continue
+		}
+		if int64(len(r.content)) > maxSize {
+			omitted = append(omitted, r.url+": size "+files.FormatSize(int64(len(r.content)))+" exceeds limit "+files.FormatSize(maxSize))
+			continue
+		}
+		sb.WriteString(files.FormatFile(r.url, string(r.content)))
+	}
+	if sb.Len() == 0 && len(omitted) == 0 {
+		return ""
+	}
+	if len(omitted) > 0 {
+		sb.WriteString("===== OMITTED FILES =====\n")
+		for _, o := range omitted {
+			sb.WriteString("- ")
+			sb.WriteString(o)
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String()
 }
 
 func parseModelFlag(value string) (config.Model, error) {
