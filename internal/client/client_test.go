@@ -131,9 +131,9 @@ func TestExecute_Retry(t *testing.T) {
 				})
 			})
 
-			c := New("token", false, nil, WithBaseURL(server.URL))
+			c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
 
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
 			result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
@@ -241,9 +241,9 @@ func TestExecute_RetryExhaustion(t *testing.T) {
 		_, _ = w.Write([]byte("server error"))
 	})
 
-	c := New("token", false, nil, WithBaseURL(server.URL))
+	c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
@@ -259,21 +259,30 @@ func TestExecute_RetryExhaustion(t *testing.T) {
 func TestExecute_EmptyChoices(t *testing.T) {
 	t.Parallel()
 
+	var attempts atomic.Int32
 	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
 		_ = json.NewEncoder(w).Encode(Response{
 			ID:      "test",
 			Choices: []Choice{},
 		})
 	})
 
-	c := New("token", false, nil, WithBaseURL(server.URL))
-	result := c.Execute(context.Background(), &config.Model{Name: "t", Model: "m"}, "", "prompt")
+	c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
 
 	if result.Status != "error" {
 		t.Error("expected error for empty choices")
 	}
 	if !strings.Contains(result.Error, "no choices") {
 		t.Errorf("expected 'no choices' error, got %q", result.Error)
+	}
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts (retry exhaustion), got %d", attempts.Load())
 	}
 }
 
@@ -317,9 +326,9 @@ func TestExecute_NetworkErrorRetry(t *testing.T) {
 		_ = conn.Close()
 	})
 
-	c := New("token", false, nil, WithBaseURL(server.URL))
+	c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
@@ -335,20 +344,29 @@ func TestExecute_NetworkErrorRetry(t *testing.T) {
 func TestExecute_InvalidJSONResponse(t *testing.T) {
 	t.Parallel()
 
+	var attempts atomic.Int32
 	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("not valid json {{{"))
 	})
 
-	c := New("token", false, nil, WithBaseURL(server.URL))
-	result := c.Execute(context.Background(), &config.Model{Name: "t", Model: "m"}, "", "prompt")
+	c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
 
 	if result.Status != "error" {
 		t.Error("expected error for invalid JSON response")
 	}
 	if !strings.Contains(result.Error, "unmarshal") {
 		t.Errorf("expected unmarshal error, got %q", result.Error)
+	}
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts (retry exhaustion), got %d", attempts.Load())
 	}
 }
 
@@ -854,8 +872,8 @@ func TestExecute_RetryOnAPIError200(t *testing.T) {
 				})
 			})
 
-			c := New("token", false, nil, WithBaseURL(server.URL))
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
 			result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
@@ -1116,5 +1134,132 @@ func TestIsRetryable_StreamError(t *testing.T) {
 				t.Errorf("isRetryable(%v) = %v, want %v", tt.err, got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestExecute_RetryOnUnmarshalError(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		n := attempts.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if n < 3 {
+			// truncated JSON to simulate provider aborting the response
+			_, _ = w.Write([]byte(`{"id":"x","choices":[{"message":{"content":"hi`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(Response{
+			Choices: []Choice{{Message: ChoiceMessage{Content: "ok"}}},
+		})
+	})
+
+	c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
+
+	if result.Status != "success" {
+		t.Errorf("expected success after retry, got %s: %s", result.Status, result.Error)
+	}
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts.Load())
+	}
+}
+
+func TestExecute_RetryOnUnmarshalError_Exhausted(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"x","choices":[{"message":{"content":"hi`))
+	})
+
+	c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
+
+	if result.Status != "error" {
+		t.Errorf("expected error after exhaustion, got %s", result.Status)
+	}
+	if !strings.Contains(result.Error, "unmarshal") {
+		t.Errorf("expected unmarshal error, got %q", result.Error)
+	}
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts.Load())
+	}
+}
+
+func TestExecute_RetryOnEmptyChoices(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		n := attempts.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if n < 3 {
+			_ = json.NewEncoder(w).Encode(Response{
+				ID:      "x",
+				Choices: []Choice{},
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(Response{
+			Choices: []Choice{{Message: ChoiceMessage{Content: "ok"}}},
+		})
+	})
+
+	c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
+
+	if result.Status != "success" {
+		t.Errorf("expected success after retry, got %s: %s", result.Status, result.Error)
+	}
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts.Load())
+	}
+}
+
+func TestExecute_RetryOnEmptyChoices_Exhausted(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		_ = json.NewEncoder(w).Encode(Response{
+			ID:      "x",
+			Choices: []Choice{},
+		})
+	})
+
+	c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
+
+	if result.Status != "error" {
+		t.Errorf("expected error after exhaustion, got %s", result.Status)
+	}
+	if !strings.Contains(result.Error, "no choices") {
+		t.Errorf("expected 'no choices' error, got %q", result.Error)
+	}
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts.Load())
 	}
 }
