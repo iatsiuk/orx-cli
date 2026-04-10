@@ -35,6 +35,17 @@ homebrew_casks:
     binaries:
       - orx
       - orx-ralphex-review
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-d", "com.apple.quarantine", "#{staged_path}/orx"]
+    caveats: |
+      Quarantine attribute (com.apple.quarantine) is automatically removed
+      from the orx binary during installation to prevent Gatekeeper warnings.
+      See: https://github.com/Homebrew/brew/issues/20755
+
+      To uninstall:
+        brew uninstall --cask orx
 
 changelog:
   sort: asc
