@@ -38,7 +38,7 @@ homebrew_casks:
     hooks:
       post:
         install: |
-          system_command "/usr/bin/xattr", args: ["-d", "com.apple.quarantine", "#{staged_path}/orx"]
+          system_command "/bin/sh", args: ["-c", "xattr -d com.apple.quarantine '#{staged_path}/orx' 2>/dev/null; true"]
     caveats: |
       Quarantine attribute (com.apple.quarantine) is automatically removed
       from the orx binary during installation to prevent Gatekeeper warnings.
