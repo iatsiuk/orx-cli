@@ -45,7 +45,7 @@ homebrew_casks:
       See: https://github.com/Homebrew/brew/issues/20755
 
       To uninstall:
-        brew uninstall --cask orx
+        brew uninstall --cask iatsiuk/tap/orx
 
 changelog:
   sort: asc
