@@ -262,10 +262,8 @@ func (c *Client) Execute(ctx context.Context, model *config.Model, systemPrompt,
 		}
 
 		result.Status = "success"
-		if len(resp.Choices) > 0 {
-			result.Content = resp.Choices[0].Message.Content
-			result.Reasoning = extractReasoning(&resp.Choices[0])
-		}
+		result.Content = resp.Choices[0].Message.Content
+		result.Reasoning = extractReasoning(&resp.Choices[0])
 		result.Usage = resp.Usage
 		result.DurationMs = time.Since(start).Milliseconds()
 

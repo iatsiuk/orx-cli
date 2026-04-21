@@ -186,6 +186,9 @@ func TestExecute_Timeout(t *testing.T) {
 	if result.Status != "error" {
 		t.Error("expected error status on timeout")
 	}
+	if !strings.Contains(result.Error, "context deadline exceeded") {
+		t.Errorf("expected deadline exceeded error, got %q", result.Error)
+	}
 }
 
 func TestExecute_Verbose(t *testing.T) {
@@ -330,6 +333,41 @@ func TestExecute_EmptyContent(t *testing.T) {
 	}
 }
 
+func TestExecute_RetryOnEmptyContent(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		n := attempts.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if n < 3 {
+			_ = json.NewEncoder(w).Encode(Response{
+				ID:      "test",
+				Choices: []Choice{{Message: ChoiceMessage{Content: ""}}},
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(Response{
+			Choices: []Choice{{Message: ChoiceMessage{Content: "ok"}}},
+		})
+	})
+
+	c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
+
+	if result.Status != "success" {
+		t.Errorf("expected success after retry, got %s: %s", result.Status, result.Error)
+	}
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts.Load())
+	}
+}
+
 func TestExecute_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
@@ -380,8 +418,8 @@ func TestExecute_NetworkErrorRetry(t *testing.T) {
 	if result.Status != "error" {
 		t.Error("expected error status on network failure")
 	}
-	if attempts.Load() < 2 {
-		t.Errorf("expected retry on network error, got %d attempts", attempts.Load())
+	if attempts.Load() != 3 {
+		t.Errorf("expected 3 attempts (retry exhaustion), got %d", attempts.Load())
 	}
 }
 
