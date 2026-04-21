@@ -51,21 +51,21 @@
 ## Implementation Steps
 
 ### Task 1: Add empty-content check to parseResponse
-- [ ] in `internal/client/client.go`, inside `parseResponse` (after the `len(result.Choices) == 0` check at line 419-421), add:
+- [x] in `internal/client/client.go`, inside `parseResponse` (after the `len(result.Choices) == 0` check at line 419-421), add:
   ```go
   if strings.TrimSpace(result.Choices[0].Message.Content) == "" {
       return nil, &retryableError{statusCode: 0, body: "empty content in response"}
   }
   ```
-- [ ] add `TestExecute_EmptyContent` in `internal/client/client_test.go` mirroring `TestExecute_EmptyChoices` (lines 259-287):
+- [x] add `TestExecute_EmptyContent` in `internal/client/client_test.go` mirroring `TestExecute_EmptyChoices` (lines 259-287):
   - server responds with `Response{ID:"test", Choices:[]Choice{{Message: ChoiceMessage{Content: ""}}}}`
   - assert `result.Status == "error"`
   - assert `strings.Contains(result.Error, "empty content")`
   - assert `attempts.Load() == 3` (retry exhaustion)
   - use `t.Parallel()`, `WithRetryDelay(0)`, 5s context timeout
-- [ ] + optional: add a second sub-case with whitespace-only content (`"   \n\t"`) to confirm `TrimSpace` path - either as a table-driven variant or an inline second test
-- [ ] run `go test -race ./internal/client/...` - all tests (existing + new) must pass
-- [ ] run `make build` - golangci-lint must pass
+- [x] + optional: add a second sub-case with whitespace-only content (`"   \n\t"`) to confirm `TrimSpace` path - either as a table-driven variant or an inline second test
+- [x] run `go test -race ./internal/client/...` - all tests (existing + new) must pass
+- [x] run `make build` - golangci-lint must pass
 
 ### Task 2: Verify acceptance criteria
 - [ ] verify `parseResponse` returns `retryableError` for empty content

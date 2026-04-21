@@ -420,6 +420,10 @@ func (c *Client) parseResponse(body []byte) (*Response, error) {
 		return nil, &retryableError{statusCode: 0, body: "no choices in response"}
 	}
 
+	if strings.TrimSpace(result.Choices[0].Message.Content) == "" {
+		return nil, &retryableError{statusCode: 0, body: "empty content in response"}
+	}
+
 	return &result, nil
 }
 

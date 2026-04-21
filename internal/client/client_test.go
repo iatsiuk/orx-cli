@@ -286,6 +286,50 @@ func TestExecute_EmptyChoices(t *testing.T) {
 	}
 }
 
+func TestExecute_EmptyContent(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{"empty string", ""},
+		{"whitespace only", "   \n\t"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var attempts atomic.Int32
+			server := testutil.NewTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				attempts.Add(1)
+				_ = json.NewEncoder(w).Encode(Response{
+					ID:      "test",
+					Choices: []Choice{{Message: ChoiceMessage{Content: tc.content}}},
+				})
+			})
+
+			c := New("token", false, nil, WithBaseURL(server.URL), WithRetryDelay(0))
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			result := c.Execute(ctx, &config.Model{Name: "t", Model: "m"}, "", "prompt")
+
+			if result.Status != "error" {
+				t.Errorf("expected error for empty content, got status %q", result.Status)
+			}
+			if !strings.Contains(result.Error, "empty content") {
+				t.Errorf("expected 'empty content' error, got %q", result.Error)
+			}
+			if attempts.Load() != 3 {
+				t.Errorf("expected 3 attempts (retry exhaustion), got %d", attempts.Load())
+			}
+		})
+	}
+}
+
 func TestExecute_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
