@@ -68,11 +68,11 @@
 - [x] run `make build` - golangci-lint must pass
 
 ### Task 2: Verify acceptance criteria
-- [ ] verify `parseResponse` returns `retryableError` for empty content
-- [ ] verify `Execute` retries 3 times and ends with `Status="error"` and `Error` containing `"empty content"`
-- [ ] verify existing `TestExecute_EmptyChoices` still passes unchanged
-- [ ] run full test suite (`go test -race ./...`)
-- [ ] run `make build` - lint + build pass
+- [x] verify `parseResponse` returns `retryableError` for empty content
+- [x] verify `Execute` retries 3 times and ends with `Status="error"` and `Error` containing `"empty content"`
+- [x] verify existing `TestExecute_EmptyChoices` still passes unchanged
+- [x] run full test suite (`go test -race ./...`)
+- [x] run `make build` - lint + build pass
 
 ## Technical Details
 
