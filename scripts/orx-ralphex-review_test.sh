@@ -22,8 +22,27 @@ MOCKS="$WORK/mocks"
 mkdir -p "$MOCKS"
 
 # --- mock: orx (success, writes JSON, emits progress to stderr) ---
-cat > "$MOCKS/orx" <<'MOCK'
+# logs args to $ORX_CALLS and copies each -f file into $ORX_FILES_DIR so tests
+# can inspect what the wrapper sent before tempdir cleanup
+ORX_CALLS="$WORK/orx_calls.txt"
+ORX_FILES_DIR="$WORK/orx_files_seen"
+mkdir -p "$ORX_FILES_DIR"
+cat > "$MOCKS/orx" <<MOCK
 #!/bin/bash
+echo "\$@" >> "$ORX_CALLS"
+_args=("\$@")
+_i=0
+while [[ \$_i -lt \${#_args[@]} ]]; do
+  if [[ "\${_args[\$_i]}" == "-f" && \$((\$_i + 1)) -lt \${#_args[@]} ]]; then
+    _path="\${_args[\$((\$_i + 1))]}"
+    if [[ -f "\$_path" ]]; then
+      cp "\$_path" "$ORX_FILES_DIR/\$(basename "\$_path")"
+    fi
+    _i=\$((_i + 2))
+    continue
+  fi
+  _i=\$((_i + 1))
+done
 echo "orx: querying 2 models" >&2
 echo "orx: done" >&2
 cat <<'JSON'
@@ -138,6 +157,54 @@ PROMPT_FLAG_AFTER_SEPARATOR="$WORK/prompt_flag_after_separator.txt"
 cat > "$PROMPT_FLAG_AFTER_SEPARATOR" <<'EOF'
 Run this command to see the changes:
 git diff HEAD~1 HEAD -- --ext-diff
+
+Review carefully.
+EOF
+
+# progress log fixtures
+PROGRESS_REAL="$WORK/progress-real.txt"
+{
+  echo "[2026-05-18 16:00:00] task 1 started"
+  echo "[2026-05-18 16:01:00] task 1 done"
+  echo "[2026-05-18 16:02:00] review iteration 1: 2 findings"
+} > "$PROGRESS_REAL"
+
+PROGRESS_BIG="$WORK/progress-big.txt"
+# generate ~200 KB of progress lines so tail truncation has something to cut
+:> "$PROGRESS_BIG"
+for i in $(seq 1 4000); do
+    echo "[2026-05-18 16:00:00] iteration $i: marker-LINE-$i some text padding to make line wider than average" >> "$PROGRESS_BIG"
+done
+
+PROMPT_WITH_PROGRESS="$WORK/prompt_with_progress.txt"
+cat > "$PROMPT_WITH_PROGRESS" <<EOF
+Run this command to see the changes:
+git diff HEAD~1 HEAD
+
+Progress log path:
+$PROGRESS_REAL
+
+Review carefully.
+EOF
+
+PROMPT_WITH_PROGRESS_MISSING="$WORK/prompt_with_progress_missing.txt"
+cat > "$PROMPT_WITH_PROGRESS_MISSING" <<EOF
+Run this command to see the changes:
+git diff HEAD~1 HEAD
+
+Progress log path:
+$WORK/does-not-exist.txt
+
+Review carefully.
+EOF
+
+PROMPT_WITH_BIG_PROGRESS="$WORK/prompt_with_big_progress.txt"
+cat > "$PROMPT_WITH_BIG_PROGRESS" <<EOF
+Run this command to see the changes:
+git diff HEAD~1 HEAD
+
+Progress log path:
+$PROGRESS_BIG
 
 Review carefully.
 EOF
@@ -323,6 +390,107 @@ if [[ "$actual" -eq 3 ]]; then
     ok "git diff failure -> exit 3"
 else
     nok "git diff failure -> exit 3 (got $actual)"
+fi
+
+# --- TEST 18: progress marker + existing file -> orx gets two -f args ---
+rm -f "$ORX_CALLS"
+rm -rf "$ORX_FILES_DIR"
+mkdir -p "$ORX_FILES_DIR"
+actual=0
+PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_WITH_PROGRESS" >/dev/null 2>&1 || actual=$?
+F_COUNT=0
+if [[ -f "$ORX_CALLS" ]]; then
+    # shellcheck disable=SC2126
+    F_COUNT=$(grep -o -- '-f ' "$ORX_CALLS" | wc -l | tr -d ' ')
+fi
+if [[ "$actual" -eq 0 && "$F_COUNT" -eq 2 ]]; then
+    ok "progress marker + existing file -> two -f args"
+else
+    nok "progress marker + existing file -> two -f args (exit=$actual, f_count=$F_COUNT, calls=$(cat "$ORX_CALLS" 2>/dev/null || echo none))"
+fi
+
+# --- TEST 19: attached progress file uses fixed name and tail of source ---
+if [[ -f "$ORX_FILES_DIR/iteration-history.log" ]]; then
+    # content should match real progress (small file, tail returns it all)
+    if diff -q "$ORX_FILES_DIR/iteration-history.log" "$PROGRESS_REAL" >/dev/null 2>&1; then
+        ok "progress attached as iteration-history.log with source content"
+    else
+        nok "progress attached as iteration-history.log with source content (content mismatch)"
+    fi
+else
+    nok "progress attached as iteration-history.log with source content (file missing in $ORX_FILES_DIR: $(ls "$ORX_FILES_DIR" 2>/dev/null))"
+fi
+
+# --- TEST 20: diff attached uses fixed name changes.diff ---
+if [[ -f "$ORX_FILES_DIR/changes.diff" ]]; then
+    ok "diff attached as changes.diff"
+else
+    nok "diff attached as changes.diff (files seen: $(ls "$ORX_FILES_DIR" 2>/dev/null))"
+fi
+
+# --- TEST 21: progress marker + missing file -> still works, one -f only ---
+rm -f "$ORX_CALLS"
+rm -rf "$ORX_FILES_DIR"
+mkdir -p "$ORX_FILES_DIR"
+actual=0
+PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_WITH_PROGRESS_MISSING" >/dev/null 2>&1 || actual=$?
+F_COUNT=0
+if [[ -f "$ORX_CALLS" ]]; then
+    # shellcheck disable=SC2126
+    F_COUNT=$(grep -o -- '-f ' "$ORX_CALLS" | wc -l | tr -d ' ')
+fi
+if [[ "$actual" -eq 0 && "$F_COUNT" -eq 1 ]]; then
+    ok "progress marker + missing file -> one -f, exit 0"
+else
+    nok "progress marker + missing file -> one -f, exit 0 (exit=$actual, f_count=$F_COUNT)"
+fi
+
+# --- TEST 22: no progress marker -> one -f only (back-compat) ---
+rm -f "$ORX_CALLS"
+rm -rf "$ORX_FILES_DIR"
+mkdir -p "$ORX_FILES_DIR"
+actual=0
+PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_WITH_MARKER" >/dev/null 2>&1 || actual=$?
+F_COUNT=0
+if [[ -f "$ORX_CALLS" ]]; then
+    # shellcheck disable=SC2126
+    F_COUNT=$(grep -o -- '-f ' "$ORX_CALLS" | wc -l | tr -d ' ')
+fi
+if [[ "$actual" -eq 0 && "$F_COUNT" -eq 1 ]]; then
+    ok "no progress marker -> one -f only (back-compat)"
+else
+    nok "no progress marker -> one -f only (back-compat) (exit=$actual, f_count=$F_COUNT)"
+fi
+
+# --- TEST 23: big progress log is tail-truncated to <= 64 KB ---
+rm -f "$ORX_CALLS"
+rm -rf "$ORX_FILES_DIR"
+mkdir -p "$ORX_FILES_DIR"
+actual=0
+PATH="$MOCKS:$PATH" "$SCRIPT" "$PROMPT_WITH_BIG_PROGRESS" >/dev/null 2>&1 || actual=$?
+ATTACHED_SIZE=0
+if [[ -f "$ORX_FILES_DIR/iteration-history.log" ]]; then
+    ATTACHED_SIZE=$(wc -c < "$ORX_FILES_DIR/iteration-history.log" | tr -d ' ')
+fi
+SRC_SIZE=$(wc -c < "$PROGRESS_BIG" | tr -d ' ')
+# attached must be smaller than source and at most 64 KB
+if [[ "$actual" -eq 0 && "$ATTACHED_SIZE" -le 65536 && "$ATTACHED_SIZE" -gt 0 && "$ATTACHED_SIZE" -lt "$SRC_SIZE" ]]; then
+    ok "big progress tail-truncated to <= 64 KB (src=$SRC_SIZE, attached=$ATTACHED_SIZE)"
+else
+    nok "big progress tail-truncated to <= 64 KB (exit=$actual, src=$SRC_SIZE, attached=$ATTACHED_SIZE)"
+fi
+
+# --- TEST 24: tail keeps the END of the log (most recent entries) ---
+if [[ -f "$ORX_FILES_DIR/iteration-history.log" ]]; then
+    LAST_SRC=$(tail -1 "$PROGRESS_BIG")
+    LAST_ATTACHED=$(tail -1 "$ORX_FILES_DIR/iteration-history.log")
+    if [[ "$LAST_SRC" == "$LAST_ATTACHED" ]]; then
+        ok "tail preserves end of progress log"
+    else
+        nok "tail preserves end of progress log (src last='$LAST_SRC', attached last='$LAST_ATTACHED')"
+    fi
+else
+    nok "tail preserves end of progress log (attached missing)"
 fi
 
 # --- summary ---

@@ -3,11 +3,20 @@
 # orx wrapper for ralphex custom review
 #
 # contract: receives one argument - path to prompt file
-# prompt contains "git diff ..." instruction that LLMs can't execute
-# this script runs the diff itself and passes both prompt + diff to orx
+# the prompt embeds two wrapper directives:
+#   1. a "Run this command to see the changes:" marker followed by a git diff
+#      command. this script runs the diff itself and attaches the output as
+#      changes.diff for orx to feed into the LLMs.
+#   2. an optional "Progress log path:" marker followed by an absolute path to
+#      the ralphex progress log. if present and the file exists, the tail of
+#      that log is attached as iteration-history.log so models see history of
+#      previous iterations without needing filesystem access.
 #
 
 set -euo pipefail
+
+# tail size for progress log (64 KB, ~5-10 task iterations)
+PROGRESS_TAIL_BYTES=65536
 
 if [[ $# -ne 1 ]]; then
     echo "error: usage: $0 <prompt-file>" >&2
@@ -41,11 +50,6 @@ if [[ ${#DIFF_ARGS[@]} -lt 2 || "${DIFF_ARGS[0]}" != "git" || "${DIFF_ARGS[1]}" 
     exit 2
 fi
 
-# use portable mktemp (macOS -t prefix differs from GNU)
-DIFF_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-diff.XXXXXX")
-JSON_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/ralphex-orx-json.XXXXXX")
-trap 'rm -f "$DIFF_TMPFILE" "$JSON_TMPFILE" || true' EXIT INT TERM HUP
-
 # reject flags that bypass security controls or write diff to an arbitrary path
 for _arg in "${DIFF_ARGS[@]:2}"; do
     case "$_arg" in
@@ -59,10 +63,30 @@ for _arg in "${DIFF_ARGS[@]:2}"; do
     esac
 done
 
+# extract optional progress log path: next non-empty line after the marker
+PROGRESS_PATH=$(awk '/Progress log path:/ { found=1; next } found && NF { print; exit }' < "$PROMPT_FILE")
+
+# single tempdir with fixed filenames so orx shows human-readable paths to LLMs
+TMPDIR_RUN=$(mktemp -d "${TMPDIR:-/tmp}/ralphex-orx.XXXXXX")
+trap 'rm -rf "$TMPDIR_RUN" || true' EXIT INT TERM HUP
+
+DIFF_FILE="$TMPDIR_RUN/changes.diff"
+PROGRESS_FILE_LOCAL="$TMPDIR_RUN/iteration-history.log"
+JSON_FILE="$TMPDIR_RUN/orx-result.json"
+
 # --no-ext-diff --no-textconv: prevent .gitattributes from invoking external commands
-if ! git -c color.ui=false diff --no-ext-diff --no-textconv "${DIFF_ARGS[@]:2}" > "$DIFF_TMPFILE"; then
+if ! git -c color.ui=false diff --no-ext-diff --no-textconv "${DIFF_ARGS[@]:2}" > "$DIFF_FILE"; then
     echo "error: git diff failed" >&2
     exit 3
+fi
+
+# build orx file args: diff is always attached, progress is opt-in
+ORX_FILE_ARGS=("-f" "$DIFF_FILE")
+if [[ -n "$PROGRESS_PATH" && -f "$PROGRESS_PATH" ]]; then
+    # tail the source to keep recent entries; orx --max-file-size 512KB is a hard cap,
+    # but we want to control what the LLM actually sees
+    tail -c "$PROGRESS_TAIL_BYTES" "$PROGRESS_PATH" > "$PROGRESS_FILE_LOCAL"
+    ORX_FILE_ARGS+=("-f" "$PROGRESS_FILE_LOCAL")
 fi
 
 # run orx even with empty diff -- prompt may contain PREVIOUS REVIEW CONTEXT
@@ -71,8 +95,8 @@ fi
 # ralphex can stream orx status updates (requesting/done) in real time.
 # orx exits 1 on partial model failure, 2 on total failure; allow 1 (valid JSON may exist).
 orx_exit=0
-orx -p "$PROMPT_FILE" -f "$DIFF_TMPFILE" --max-file-size 512KB \
-    >"$JSON_TMPFILE" || orx_exit=$?
+orx -p "$PROMPT_FILE" "${ORX_FILE_ARGS[@]}" --max-file-size 512KB \
+    >"$JSON_FILE" || orx_exit=$?
 
 if [[ $orx_exit -gt 1 ]]; then
     echo "error: orx failed (exit $orx_exit)" >&2
@@ -87,7 +111,7 @@ if ! jq -r '
   else
     "=== \(.name) [ERROR] ===\n\(.error // "unknown error")\n"
   end
-' < "$JSON_TMPFILE"; then
+' < "$JSON_FILE"; then
     echo "error: failed to parse orx output" >&2
     exit 4
 fi
